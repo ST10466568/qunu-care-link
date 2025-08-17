@@ -10,6 +10,7 @@ import ScheduleView from './ScheduleView';
 import EditAppointmentModal from './EditAppointmentModal';
 import Reports from './Reports';
 import WalkInPatientModal from './WalkInPatientModal';
+import ManageStaffModal from './ManageStaffModal';
 
 interface Staff {
   id: string;
@@ -60,6 +61,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
   const [showReports, setShowReports] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [showWalkInModal, setShowWalkInModal] = useState(false);
+  const [showManageStaffModal, setShowManageStaffModal] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -280,7 +282,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
                   <BarChart3 className="h-4 w-4 mr-2" />
                   View Reports
                 </Button>
-                <Button variant="outline">
+                <Button variant="outline" onClick={() => setShowManageStaffModal(true)}>
                   <Users className="h-4 w-4 mr-2" />
                   Manage Staff
                 </Button>
@@ -432,6 +434,11 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
         onClose={() => setShowWalkInModal(false)}
         onSuccess={fetchAppointments}
         currentStaff={staff}
+      />
+
+      <ManageStaffModal
+        isOpen={showManageStaffModal}
+        onClose={() => setShowManageStaffModal(false)}
       />
     </div>
   );
