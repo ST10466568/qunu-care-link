@@ -3,10 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Clock, Users, CheckCircle, XCircle, AlertCircle, Plus, FileText } from 'lucide-react';
+import { Calendar, Clock, Users, CheckCircle, XCircle, AlertCircle, Plus, FileText, Edit } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import ScheduleView from './ScheduleView';
+import EditAppointmentModal from './EditAppointmentModal';
 
 interface Staff {
   id: string;
@@ -26,6 +27,8 @@ interface Appointment {
   booking_type: string;
   notes?: string;
   staff_id?: string;
+  service_id: string;
+  patient_id: string;
   services: {
     name: string;
     description?: string;
@@ -52,6 +55,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
   });
   const [loading, setLoading] = useState(true);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -319,6 +323,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
                       key={appointment.id}
                       appointment={appointment}
                       onStatusUpdate={updateAppointmentStatus}
+                      onEdit={setEditingAppointment}
                       showPatientInfo={true}
                       formatTime={formatTime}
                       getStatusColor={getStatusColor}
@@ -354,6 +359,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
                       key={appointment.id}
                       appointment={appointment}
                       onStatusUpdate={updateAppointmentStatus}
+                      onEdit={setEditingAppointment}
                       showPatientInfo={true}
                       formatTime={formatTime}
                       formatDate={formatDate}
@@ -390,6 +396,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
                       key={appointment.id}
                       appointment={appointment}
                       onStatusUpdate={updateAppointmentStatus}
+                      onEdit={setEditingAppointment}
                       showPatientInfo={true}
                       formatTime={formatTime}
                       formatDate={formatDate}
@@ -404,6 +411,13 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <EditAppointmentModal
+        appointment={editingAppointment}
+        isOpen={!!editingAppointment}
+        onClose={() => setEditingAppointment(null)}
+        onUpdate={fetchAppointments}
+      />
     </div>
   );
 };
@@ -412,6 +426,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
 interface AppointmentCardProps {
   appointment: Appointment;
   onStatusUpdate: (id: string, status: string) => void;
+  onEdit: (appointment: Appointment) => void;
   showPatientInfo: boolean;
   formatTime: (time: string) => string;
   formatDate?: (date: string) => string;
@@ -423,6 +438,7 @@ interface AppointmentCardProps {
 const AppointmentCard: React.FC<AppointmentCardProps> = ({
   appointment,
   onStatusUpdate,
+  onEdit,
   showPatientInfo,
   formatTime,
   formatDate,
@@ -528,7 +544,9 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
                 size="sm" 
                 variant="ghost"
                 className="text-primary hover:text-primary/80"
+                onClick={() => onEdit(appointment)}
               >
+                <Edit className="h-4 w-4 mr-2" />
                 Edit Appointment
               </Button>
             )}
