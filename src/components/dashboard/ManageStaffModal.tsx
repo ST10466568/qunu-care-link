@@ -29,9 +29,10 @@ interface Staff {
 interface ManageStaffModalProps {
   isOpen: boolean;
   onClose: () => void;
+  currentStaff: Staff;
 }
 
-const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose }) => {
+const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose, currentStaff }) => {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
@@ -193,9 +194,11 @@ const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose }) 
         </DialogHeader>
 
         <Tabs defaultValue="staff-list" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={`grid w-full ${currentStaff.role === 'admin' ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="staff-list">Staff Members</TabsTrigger>
-            <TabsTrigger value="add-staff">Add New Staff</TabsTrigger>
+            {currentStaff.role === 'admin' && (
+              <TabsTrigger value="add-staff">Add New Staff</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="staff-list" className="space-y-4">
@@ -247,6 +250,7 @@ const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose }) 
                                   <Switch
                                     checked={member.is_active}
                                     onCheckedChange={() => toggleStaffStatus(member)}
+                                    disabled={currentStaff.role !== 'admin'}
                                   />
                                   <span className="text-sm">
                                     {member.is_active ? 'Active' : 'Inactive'}
@@ -259,6 +263,7 @@ const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose }) 
                                     size="sm"
                                     variant="outline"
                                     onClick={() => setEditingStaff(member)}
+                                    disabled={currentStaff.role !== 'admin'}
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>
@@ -276,14 +281,15 @@ const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose }) 
           </TabsContent>
 
           <TabsContent value="add-staff" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Add New Staff Member</CardTitle>
-                <CardDescription>
-                  Create a new staff account. They will receive login credentials via email.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+            {currentStaff.role === 'admin' ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Add New Staff Member</CardTitle>
+                  <CardDescription>
+                    Create a new staff account. They will receive login credentials via email.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
                 <form onSubmit={handleAddStaff} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -364,8 +370,21 @@ const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose }) 
                     </Button>
                   </div>
                 </form>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-8">
+                    <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Access Restricted</h3>
+                    <p className="text-muted-foreground">
+                      Only administrators can add new staff members.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
 

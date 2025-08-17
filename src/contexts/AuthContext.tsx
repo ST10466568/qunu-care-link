@@ -14,11 +14,15 @@ interface Patient {
 
 interface Staff {
   id: string;
+  user_id: string;
   first_name: string;
   last_name: string;
   role: 'doctor' | 'nurse' | 'admin';
   phone?: string;
   staff_number?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 interface AuthContextType {
