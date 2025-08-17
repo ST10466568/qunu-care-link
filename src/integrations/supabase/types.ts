@@ -274,7 +274,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_current_user_staff_info: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          is_active: boolean
+          role: string
+          user_id: string
+        }[]
+      }
+      is_current_user_active_staff: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
