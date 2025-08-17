@@ -3,11 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Clock, Users, CheckCircle, XCircle, AlertCircle, Plus, FileText, Edit } from 'lucide-react';
+import { Calendar, Clock, Users, CheckCircle, XCircle, AlertCircle, Plus, FileText, Edit, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import ScheduleView from './ScheduleView';
 import EditAppointmentModal from './EditAppointmentModal';
+import Reports from './Reports';
 
 interface Staff {
   id: string;
@@ -55,6 +56,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
   });
   const [loading, setLoading] = useState(true);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [showReports, setShowReports] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const { toast } = useToast();
 
@@ -204,6 +206,10 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
     return <ScheduleView staff={staff} onBack={() => setShowSchedule(false)} />;
   }
 
+  if (showReports) {
+    return <Reports staff={staff} onBack={() => setShowReports(false)} />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
@@ -268,9 +274,9 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
                   <Plus className="h-4 w-4" />
                   <span>Add Walk-in Patient</span>
                 </Button>
-                <Button variant="outline">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Generate Reports
+                <Button variant="outline" onClick={() => setShowReports(true)}>
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  View Reports
                 </Button>
                 <Button variant="outline">
                   <Users className="h-4 w-4 mr-2" />
