@@ -25,6 +25,7 @@ interface Appointment {
   status: string;
   booking_type: string;
   notes?: string;
+  staff_id?: string;
   services: {
     name: string;
     description?: string;
@@ -130,6 +131,22 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
     } catch (error) {
       console.error('Error updating appointment:', error);
     }
+  };
+
+  const canManageAppointment = (appointment: Appointment): boolean => {
+    // Admin can manage all appointments
+    if (staff.role === 'admin') {
+      return true;
+    }
+    
+    // Doctor can only manage appointments on days they are scheduled
+    if (staff.role === 'doctor') {
+      // For now, we'll allow doctors to manage their own appointments
+      // In a more complex system, you'd check if they're scheduled for that specific day
+      return appointment.staff_id === staff.id;
+    }
+    
+    return false;
   };
 
   const getStatusColor = (status: string) => {
@@ -305,6 +322,8 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
                       showPatientInfo={true}
                       formatTime={formatTime}
                       getStatusColor={getStatusColor}
+                      canManage={canManageAppointment(appointment)}
+                      staff={staff}
                     />
                   ))}
                 </div>
@@ -339,7 +358,8 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
                       formatTime={formatTime}
                       formatDate={formatDate}
                       getStatusColor={getStatusColor}
-                      showActions={true}
+                      canManage={canManageAppointment(appointment)}
+                      staff={staff}
                     />
                   ))}
                 </div>
@@ -374,6 +394,8 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
                       formatTime={formatTime}
                       formatDate={formatDate}
                       getStatusColor={getStatusColor}
+                      canManage={canManageAppointment(appointment)}
+                      staff={staff}
                     />
                   ))}
                 </div>
@@ -394,7 +416,8 @@ interface AppointmentCardProps {
   formatTime: (time: string) => string;
   formatDate?: (date: string) => string;
   getStatusColor: (status: string) => string;
-  showActions?: boolean;
+  canManage: boolean;
+  staff: Staff;
 }
 
 const AppointmentCard: React.FC<AppointmentCardProps> = ({
@@ -404,7 +427,8 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   formatTime,
   formatDate,
   getStatusColor,
-  showActions = false
+  canManage,
+  staff
 }) => {
   return (
     <div className="border rounded-lg p-4">
@@ -455,24 +479,59 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           )}
         </div>
         
-        {showActions && appointment.status === 'pending' && (
-          <div className="flex space-x-2 ml-4">
-            <Button 
-              size="sm" 
-              onClick={() => onStatusUpdate(appointment.id, 'confirmed')}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Approve
-            </Button>
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={() => onStatusUpdate(appointment.id, 'cancelled')}
-            >
-              <XCircle className="h-4 w-4 mr-2" />
-              Decline
-            </Button>
+        {canManage && (
+          <div className="flex flex-col space-y-2 ml-4">
+            {appointment.status === 'pending' && (
+              <div className="flex space-x-2">
+                <Button 
+                  size="sm" 
+                  onClick={() => onStatusUpdate(appointment.id, 'confirmed')}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Confirm
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => onStatusUpdate(appointment.id, 'cancelled')}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+              </div>
+            )}
+            
+            {appointment.status === 'confirmed' && (
+              <div className="flex space-x-2">
+                <Button 
+                  size="sm" 
+                  onClick={() => onStatusUpdate(appointment.id, 'completed')}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Complete
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => onStatusUpdate(appointment.id, 'cancelled')}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+              </div>
+            )}
+            
+            {(appointment.status === 'pending' || appointment.status === 'confirmed') && (
+              <Button 
+                size="sm" 
+                variant="ghost"
+                className="text-primary hover:text-primary/80"
+              >
+                Edit Appointment
+              </Button>
+            )}
           </div>
         )}
       </div>
