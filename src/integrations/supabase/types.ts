@@ -14,7 +14,261 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          appointment_date: string
+          booking_type: string
+          created_at: string
+          end_time: string
+          id: string
+          notes: string | null
+          patient_id: string
+          service_id: string
+          staff_id: string | null
+          start_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_date: string
+          booking_type?: string
+          created_at?: string
+          end_time: string
+          id?: string
+          notes?: string | null
+          patient_id: string
+          service_id: string
+          staff_id?: string | null
+          start_time: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          booking_type?: string
+          created_at?: string
+          end_time?: string
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          service_id?: string
+          staff_id?: string | null
+          start_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          appointment_id: string
+          channel: string
+          created_at: string
+          id: string
+          message: string
+          recipient: string
+          sent_at: string | null
+          status: string
+          type: string
+        }
+        Insert: {
+          appointment_id: string
+          channel: string
+          created_at?: string
+          id?: string
+          message: string
+          recipient: string
+          sent_at?: string | null
+          status?: string
+          type: string
+        }
+        Update: {
+          appointment_id?: string
+          channel?: string
+          created_at?: string
+          id?: string
+          message?: string
+          recipient?: string
+          sent_at?: string | null
+          status?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          address: string | null
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          first_name: string
+          id: string
+          last_name: string
+          patient_number: string | null
+          phone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          first_name: string
+          id?: string
+          last_name: string
+          patient_number?: string | null
+          phone: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          patient_number?: string | null
+          phone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      services: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_minutes: number
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      staff: {
+        Row: {
+          created_at: string
+          first_name: string
+          id: string
+          is_active: boolean
+          last_name: string
+          phone: string | null
+          role: string
+          staff_number: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          first_name: string
+          id?: string
+          is_active?: boolean
+          last_name: string
+          phone?: string | null
+          role: string
+          staff_number?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          first_name?: string
+          id?: string
+          is_active?: boolean
+          last_name?: string
+          phone?: string | null
+          role?: string
+          staff_number?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      time_slots: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          is_active: boolean
+          start_time: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_active?: boolean
+          start_time: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          start_time?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
