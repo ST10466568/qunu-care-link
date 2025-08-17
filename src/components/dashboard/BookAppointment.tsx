@@ -21,6 +21,12 @@ interface TimeSlot {
   end_time: string;
 }
 
+interface ExistingAppointment {
+  appointment_date: string;
+  start_time: string;
+  end_time: string;
+}
+
 interface BookAppointmentProps {
   patientId: string;
   onBookingComplete: () => void;
@@ -29,6 +35,7 @@ interface BookAppointmentProps {
 const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps) => {
   const [services, setServices] = useState<Service[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [existingAppointments, setExistingAppointments] = useState<ExistingAppointment[]>([]);
   const [selectedService, setSelectedService] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
@@ -40,7 +47,14 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
   useEffect(() => {
     fetchServices();
     fetchTimeSlots();
+    fetchExistingAppointments();
   }, []);
+
+  useEffect(() => {
+    if (selectedDate) {
+      fetchExistingAppointments();
+    }
+  }, [selectedDate]);
 
   const fetchServices = async () => {
     const { data, error } = await supabase
@@ -78,6 +92,27 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
     }
   };
 
+  const fetchExistingAppointments = async () => {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('appointment_date, start_time, end_time')
+      .neq('status', 'cancelled');
+
+    if (error) {
+      console.error('Error fetching existing appointments:', error);
+    } else {
+      setExistingAppointments(data || []);
+    }
+  };
+
+  const isTimeSlotAvailable = (date: string, startTime: string, endTime: string) => {
+    return !existingAppointments.some(apt => 
+      apt.appointment_date === date && 
+      apt.start_time === startTime && 
+      apt.end_time === endTime
+    );
+  };
+
   const getNextAvailableDates = () => {
     const dates = [];
     const today = new Date();
@@ -107,7 +142,12 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
     const date = new Date(selectedDate);
     const dayOfWeek = date.getDay();
     
-    return timeSlots.filter(slot => slot.day_of_week === dayOfWeek);
+    const slotsForDay = timeSlots.filter(slot => slot.day_of_week === dayOfWeek);
+    
+    // Filter out already booked time slots
+    return slotsForDay.filter(slot => 
+      isTimeSlotAvailable(selectedDate, slot.start_time, slot.end_time)
+    );
   };
 
   const handleBookAppointment = async () => {
@@ -229,19 +269,27 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
         {selectedDate && (
           <div className="space-y-2">
             <label className="text-sm font-medium">Select Time</label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {availableTimeSlots.map((slot) => (
-                <Button
-                  key={slot.id}
-                  variant={selectedTimeSlot === slot.id ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedTimeSlot(slot.id)}
-                  className="justify-center"
-                >
-                  {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
-                </Button>
-              ))}
-            </div>
+            {availableTimeSlots.length === 0 ? (
+              <div className="p-4 bg-muted rounded-md text-center text-muted-foreground">
+                <Clock className="h-8 w-8 mx-auto mb-2" />
+                <p>No available time slots for this date</p>
+                <p className="text-sm">Please select a different date</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {availableTimeSlots.map((slot) => (
+                  <Button
+                    key={slot.id}
+                    variant={selectedTimeSlot === slot.id ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedTimeSlot(slot.id)}
+                    className="justify-center"
+                  >
+                    {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
