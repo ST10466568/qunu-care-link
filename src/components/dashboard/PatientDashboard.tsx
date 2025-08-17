@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, Phone, Mail, Plus, User } from 'lucide-react';
+import { Calendar, Clock, Phone, Mail, Plus, User, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import BookAppointment from './BookAppointment';
 
 interface Patient {
   id: string;
@@ -40,6 +41,7 @@ interface PatientDashboardProps {
 const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showBooking, setShowBooking] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -165,17 +167,31 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            <Button className="flex items-center space-x-2">
+            <Button 
+              className="flex items-center space-x-2"
+              onClick={() => setShowBooking(!showBooking)}
+            >
               <Plus className="h-4 w-4" />
-              <span>Book New Appointment</span>
+              <span>{showBooking ? 'Hide Booking' : 'Book New Appointment'}</span>
             </Button>
             <Button variant="outline">
-              <Calendar className="h-4 w-4 mr-2" />
+              <Eye className="h-4 w-4 mr-2" />
               View All Appointments
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Book Appointment Form */}
+      {showBooking && (
+        <BookAppointment 
+          patientId={patient.id} 
+          onBookingComplete={() => {
+            setShowBooking(false);
+            fetchAppointments();
+          }}
+        />
+      )}
 
       {/* Upcoming Appointments */}
       <Card>
@@ -195,7 +211,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
               <p className="text-muted-foreground mb-4">
                 You don't have any scheduled appointments. Book one now to get the care you need.
               </p>
-              <Button>
+              <Button
+                onClick={() => setShowBooking(true)}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Book Appointment
               </Button>
