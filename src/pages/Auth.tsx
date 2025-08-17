@@ -5,9 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { Heart, Users, UserPlus, LogIn } from 'lucide-react';
+import { Heart, UserPlus, LogIn } from 'lucide-react';
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -35,8 +34,6 @@ const Auth = () => {
     first_name: '',
     last_name: '',
     phone: '',
-    user_type: 'patient' as 'patient' | 'staff',
-    role: 'nurse' as 'doctor' | 'nurse' | 'admin',
   });
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -65,8 +62,7 @@ const Auth = () => {
       first_name: signUpData.first_name,
       last_name: signUpData.last_name,
       phone: signUpData.phone,
-      user_type: signUpData.user_type,
-      role: signUpData.user_type === 'staff' ? signUpData.role : undefined,
+      user_type: 'patient',
     });
 
     setIsLoading(false);
@@ -90,7 +86,7 @@ const Auth = () => {
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">Welcome</CardTitle>
             <CardDescription className="text-center">
-              Sign in to your account or create a new one
+              Sign in to your account or register as a patient
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -102,7 +98,7 @@ const Auth = () => {
                 </TabsTrigger>
                 <TabsTrigger value="signup" className="flex items-center space-x-2">
                   <UserPlus className="h-4 w-4" />
-                  <span>Sign Up</span>
+                  <span>Register</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -138,6 +134,15 @@ const Auth = () => {
 
               {/* Sign Up Tab */}
               <TabsContent value="signup">
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Patient Registration:</strong> Create your account to book appointments and access your medical records.
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                    Staff members are added by administrators through the system.
+                  </p>
+                </div>
+                
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-2">
@@ -187,51 +192,6 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="user-type">I am a</Label>
-                    <Select 
-                      value={signUpData.user_type} 
-                      onValueChange={(value) => setSignUpData({ ...signUpData, user_type: value as 'patient' | 'staff' })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="patient">
-                          <div className="flex items-center space-x-2">
-                            <Users className="h-4 w-4" />
-                            <span>Patient</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="staff">
-                          <div className="flex items-center space-x-2">
-                            <Heart className="h-4 w-4" />
-                            <span>Staff Member</span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {signUpData.user_type === 'staff' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="role">Role</Label>
-                      <Select 
-                        value={signUpData.role} 
-                        onValueChange={(value) => setSignUpData({ ...signUpData, role: value as 'doctor' | 'nurse' | 'admin' })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="doctor">Doctor</SelectItem>
-                          <SelectItem value="nurse">Nurse</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
                     <Input
                       id="password"
@@ -254,7 +214,7 @@ const Auth = () => {
                   </div>
 
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Creating Account...' : 'Create Account'}
+                    {isLoading ? 'Creating Account...' : 'Register as Patient'}
                   </Button>
                 </form>
               </TabsContent>
