@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, Clock, Users, CheckCircle, XCircle, AlertCircle, Plus, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import ScheduleView from './ScheduleView';
 
 interface Staff {
   id: string;
@@ -49,6 +50,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
     completed: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [showSchedule, setShowSchedule] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -177,6 +179,10 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
     }
   };
 
+  if (showSchedule) {
+    return <ScheduleView staff={staff} onBack={() => setShowSchedule(false)} />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
@@ -251,7 +257,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
                 </Button>
               </>
             )}
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => setShowSchedule(true)}>
               <Calendar className="h-4 w-4 mr-2" />
               View Schedule
             </Button>
