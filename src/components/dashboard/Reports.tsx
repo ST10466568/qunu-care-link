@@ -54,6 +54,8 @@ const Reports: React.FC<ReportsProps> = ({ staff, onBack }) => {
       const monthStart = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
       const monthEnd = format(endOfMonth(selectedMonth), 'yyyy-MM-dd');
 
+      console.log('Fetching reports for period:', monthStart, 'to', monthEnd);
+
       const { data: appointments, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
@@ -67,6 +69,8 @@ const Reports: React.FC<ReportsProps> = ({ staff, onBack }) => {
         .order('appointment_date', { ascending: true });
 
       if (appointmentsError) throw appointmentsError;
+
+      console.log('Fetched appointments:', appointments?.length || 0);
 
       // Calculate service statistics
       const serviceStats = appointments?.reduce((acc: any[], appointment) => {
@@ -90,12 +94,12 @@ const Reports: React.FC<ReportsProps> = ({ staff, onBack }) => {
         return acc;
       }, []) || [];
 
-      // Calculate monthly statistics
+      // Calculate monthly statistics  
       const monthlyStats = [
         {
           metric: 'Total Appointments',
           value: appointments?.length || 0,
-          icon: Calendar
+          icon: BarChart3
         },
         {
           metric: 'Completed',
@@ -401,18 +405,32 @@ const Reports: React.FC<ReportsProps> = ({ staff, onBack }) => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reportData.serviceStats.map((stat, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">{stat.service}</TableCell>
-                        <TableCell>{stat.total}</TableCell>
-                        <TableCell>{stat.completed}</TableCell>
-                        <TableCell>{stat.no_shows}</TableCell>
-                        <TableCell>{stat.cancelled}</TableCell>
-                        <TableCell>
-                          {stat.total > 0 ? `${((stat.completed / stat.total) * 100).toFixed(1)}%` : '0%'}
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8">
+                          Loading data...
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : reportData.serviceStats.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8">
+                          No service data available for {format(selectedMonth, "MMMM yyyy")}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      reportData.serviceStats.map((stat, index) => (
+                        <TableRow key={index}>
+                          <TableCell className="font-medium">{stat.service}</TableCell>
+                          <TableCell>{stat.total}</TableCell>
+                          <TableCell>{stat.completed}</TableCell>
+                          <TableCell>{stat.no_shows}</TableCell>
+                          <TableCell>{stat.cancelled}</TableCell>
+                          <TableCell>
+                            {stat.total > 0 ? `${((stat.completed / stat.total) * 100).toFixed(1)}%` : '0%'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -440,18 +458,32 @@ const Reports: React.FC<ReportsProps> = ({ staff, onBack }) => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reportData.noShowRates.map((stat, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">{stat.service}</TableCell>
-                        <TableCell>{stat.total}</TableCell>
-                        <TableCell>{stat.no_shows}</TableCell>
-                        <TableCell>
-                          <Badge variant={parseFloat(stat.rate) > 15 ? 'destructive' : 'secondary'}>
-                            {stat.rate}%
-                          </Badge>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8">
+                          Loading data...
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : reportData.noShowRates.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8">
+                          No no-show data available for {format(selectedMonth, "MMMM yyyy")}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      reportData.noShowRates.map((stat, index) => (
+                        <TableRow key={index}>
+                          <TableCell className="font-medium">{stat.service}</TableCell>
+                          <TableCell>{stat.total}</TableCell>
+                          <TableCell>{stat.no_shows}</TableCell>
+                          <TableCell>
+                            <Badge variant={parseFloat(stat.rate) > 15 ? 'destructive' : 'secondary'}>
+                              {stat.rate}%
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
