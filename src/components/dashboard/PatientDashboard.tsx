@@ -6,6 +6,7 @@ import { Calendar, Clock, Phone, Mail, Plus, User, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import BookAppointment from './BookAppointment';
+import AllAppointmentsModal from './AllAppointmentsModal';
 
 interface Patient {
   id: string;
@@ -42,6 +43,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBooking, setShowBooking] = useState(false);
+  const [showAllAppointments, setShowAllAppointments] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -174,7 +176,10 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
               <Plus className="h-4 w-4" />
               <span>{showBooking ? 'Hide Booking' : 'Book New Appointment'}</span>
             </Button>
-            <Button variant="outline">
+            <Button 
+              variant="outline"
+              onClick={() => setShowAllAppointments(true)}
+            >
               <Eye className="h-4 w-4 mr-2" />
               View All Appointments
             </Button>
@@ -315,6 +320,13 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
           </CardContent>
         </Card>
       )}
+
+      {/* All Appointments Modal */}
+      <AllAppointmentsModal
+        isOpen={showAllAppointments}
+        onClose={() => setShowAllAppointments(false)}
+        appointments={appointments}
+      />
     </div>
   );
 };
