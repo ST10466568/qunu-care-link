@@ -35,6 +35,7 @@ interface Appointment {
   booking_type: string;
   notes?: string;
   staff_id?: string;
+  doctor_id?: string;
   service_id: string;
   patient_id: string;
   services: {
@@ -87,7 +88,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
 
       // If not admin, only show own appointments
       if (staff.role !== 'admin') {
-        query = query.eq('staff_id', staff.id);
+        query = query.or(`staff_id.eq.${staff.id},doctor_id.eq.${staff.id}`);
       }
 
       const { data, error } = await query
@@ -159,7 +160,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
     if (staff.role === 'doctor') {
       // For now, we'll allow doctors to manage their own appointments
       // In a more complex system, you'd check if they're scheduled for that specific day
-      return appointment.staff_id === staff.id;
+      return appointment.staff_id === staff.id || appointment.doctor_id === staff.id;
     }
     
     return false;
