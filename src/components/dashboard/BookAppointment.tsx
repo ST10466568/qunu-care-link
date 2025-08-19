@@ -147,20 +147,31 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
     const selectedServiceData = services.find(service => service.id === selectedService);
     const serviceDuration = selectedServiceData?.duration_minutes || 30;
     
-    const slotsForDay = timeSlots.filter(slot => slot.day_of_week === dayOfWeek);
+    // Get all time slots for this day
+    const daySlots = timeSlots.filter(slot => slot.day_of_week === dayOfWeek);
     
-    // Filter slots that can accommodate the full service duration and aren't already booked
-    return slotsForDay.filter(slot => {
-      // Check if the service can be completed within this time slot
+    if (daySlots.length === 0) return [];
+    
+    // Find the latest end time for the day (overall business hours)
+    const latestEndTime = daySlots.reduce((latest, slot) => {
+      const [endHour, endMin] = slot.end_time.split(':').map(Number);
+      const endMinutes = endHour * 60 + endMin;
+      const [latestHour, latestMin] = latest.split(':').map(Number);
+      const latestMinutes = latestHour * 60 + latestMin;
+      return endMinutes > latestMinutes ? slot.end_time : latest;
+    }, '00:00');
+    
+    const [maxHour, maxMin] = latestEndTime.split(':').map(Number);
+    const maxMinutesInDay = maxHour * 60 + maxMin;
+    
+    // Filter slots where the service can be completed before business hours end and aren't already booked
+    return daySlots.filter(slot => {
       const [slotStartHour, slotStartMin] = slot.start_time.split(':').map(Number);
-      const [slotEndHour, slotEndMin] = slot.end_time.split(':').map(Number);
-      
       const slotStartMinutes = slotStartHour * 60 + slotStartMin;
-      const slotEndMinutes = slotEndHour * 60 + slotEndMin;
       const serviceEndMinutes = slotStartMinutes + serviceDuration;
       
-      // Service must end before or at the slot end time and slot must be available
-      return serviceEndMinutes <= slotEndMinutes && 
+      // Service must end before or at the end of business hours and slot must be available
+      return serviceEndMinutes <= maxMinutesInDay && 
              isTimeSlotAvailable(selectedDate, slot.start_time, slot.end_time);
     });
   };
@@ -178,7 +189,16 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
     setLoading(true);
 
     const timeSlot = timeSlots.find(slot => slot.id === selectedTimeSlot);
-    if (!timeSlot) return;
+    const selectedServiceData = services.find(service => service.id === selectedService);
+    if (!timeSlot || !selectedServiceData) return;
+
+    // Calculate end time based on service duration
+    const [startHour, startMin] = timeSlot.start_time.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = startMinutes + selectedServiceData.duration_minutes;
+    const endHour = Math.floor(endMinutes / 60);
+    const endMin = endMinutes % 60;
+    const serviceEndTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
 
     const { error } = await supabase
       .from('appointments')
@@ -187,7 +207,7 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
         service_id: selectedService,
         appointment_date: selectedDate,
         start_time: timeSlot.start_time,
-        end_time: timeSlot.end_time,
+        end_time: serviceEndTime,
         status: 'pending',
         booking_type: 'online'
       });

@@ -109,20 +109,32 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
     const selectedService = services.find(s => s.id === formData.serviceId);
     const serviceDuration = selectedService?.duration_minutes || 30;
     
-    return timeSlots
-      .filter(slot => slot.day_of_week === dayOfWeek)
-      .filter(slot => {
-        // Check if the service can be completed within this time slot
-        const [slotStartHour, slotStartMin] = slot.start_time.split(':').map(Number);
-        const [slotEndHour, slotEndMin] = slot.end_time.split(':').map(Number);
-        
-        const slotStartMinutes = slotStartHour * 60 + slotStartMin;
-        const slotEndMinutes = slotEndHour * 60 + slotEndMin;
-        const serviceEndMinutes = slotStartMinutes + serviceDuration;
-        
-        // Service must end before or at the slot end time
-        return serviceEndMinutes <= slotEndMinutes;
-      });
+    // Get all time slots for this day
+    const daySlots = timeSlots.filter(slot => slot.day_of_week === dayOfWeek);
+    
+    if (daySlots.length === 0) return [];
+    
+    // Find the latest end time for the day (overall business hours)
+    const latestEndTime = daySlots.reduce((latest, slot) => {
+      const [endHour, endMin] = slot.end_time.split(':').map(Number);
+      const endMinutes = endHour * 60 + endMin;
+      const [latestHour, latestMin] = latest.split(':').map(Number);
+      const latestMinutes = latestHour * 60 + latestMin;
+      return endMinutes > latestMinutes ? slot.end_time : latest;
+    }, '00:00');
+    
+    const [maxHour, maxMin] = latestEndTime.split(':').map(Number);
+    const maxMinutesInDay = maxHour * 60 + maxMin;
+    
+    // Return slots where the service can be completed before business hours end
+    return daySlots.filter(slot => {
+      const [slotStartHour, slotStartMin] = slot.start_time.split(':').map(Number);
+      const slotStartMinutes = slotStartHour * 60 + slotStartMin;
+      const serviceEndMinutes = slotStartMinutes + serviceDuration;
+      
+      // Service must end before or at the end of business hours for the day
+      return serviceEndMinutes <= maxMinutesInDay;
+    });
   };
 
   const fetchServices = async () => {
