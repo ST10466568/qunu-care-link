@@ -56,6 +56,9 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
       const currentDoctor = doctors.find(doc => doc.id === currentUser.staff_id);
       if (currentDoctor) {
         setSelectedDoctor(currentDoctor.id);
+        console.log('Auto-selected doctor for current user:', currentDoctor);
+      } else {
+        console.error('Current user staff_id not found in doctors list:', currentUser.staff_id, doctors);
       }
     }
   }, [isDoctor, currentUser.staff_id, doctors]);
@@ -135,7 +138,12 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
   };
 
   const handleSetAvailability = async () => {
+    console.log('Setting availability - selectedDoctor:', selectedDoctor, 'startDate:', startDate, 'endDate:', endDate);
+    console.log('Current user:', currentUser);
+    console.log('Available doctors:', doctors);
+    
     if (!selectedDoctor || !startDate || !endDate) {
+      console.log('Validation failed - missing fields');
       toast({
         title: "Missing Information",
         description: "Please select a doctor, start date, and end date",
@@ -146,6 +154,7 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
 
     // Validate date range
     if (new Date(startDate) > new Date(endDate)) {
+      console.log('Validation failed - invalid date range');
       toast({
         title: "Invalid Date Range",
         description: "Start date must be before or equal to end date",
@@ -156,6 +165,7 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
 
     // Check permissions
     if (isDoctor && selectedDoctor !== currentUser.staff_id) {
+      console.log('Permission denied - doctor trying to set another doctor availability');
       toast({
         title: "Permission Denied",
         description: "You can only manage your own availability",
@@ -167,27 +177,39 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
     setLoading(true);
     try {
       const datesInRange = getDatesInRange(startDate, endDate);
+      console.log('Dates in range:', datesInRange);
       const doctorName = doctors.find(doc => doc.id === selectedDoctor);
       
       // Process each date in the range
       for (const date of datesInRange) {
+        console.log('Processing date:', date);
         // Check if record already exists
-        const { data: existingRecord } = await supabase
+        const { data: existingRecord, error: checkError } = await supabase
           .from('staff_availability')
           .select('id')
           .eq('staff_id', selectedDoctor)
           .eq('availability_date', date)
           .maybeSingle();
 
+        if (checkError) {
+          console.error('Error checking existing record:', checkError);
+          throw checkError;
+        }
+
         if (existingRecord) {
+          console.log('Updating existing record for date:', date);
           // Update existing record
           const { error } = await supabase
             .from('staff_availability')
             .update({ is_available: isAvailable })
             .eq('id', existingRecord.id);
 
-          if (error) throw error;
+          if (error) {
+            console.error('Error updating record:', error);
+            throw error;
+          }
         } else {
+          console.log('Creating new record for date:', date);
           // Create new record
           const { error } = await supabase
             .from('staff_availability')
@@ -197,7 +219,10 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
               is_available: isAvailable
             });
 
-          if (error) throw error;
+          if (error) {
+            console.error('Error creating record:', error);
+            throw error;
+          }
         }
       }
 
@@ -205,6 +230,8 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
         ? new Date(datesInRange[0]).toLocaleDateString()
         : `${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`;
 
+      console.log('Successfully updated availability for', datesInRange.length, 'days');
+      
       toast({
         title: "Success",
         description: `Availability updated for Dr. ${doctorName?.first_name} ${doctorName?.last_name} from ${dateRange} (${datesInRange.length} day${datesInRange.length > 1 ? 's' : ''})`,
@@ -224,7 +251,7 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
       console.error('Error setting availability:', error);
       toast({
         title: "Error",
-        description: "Failed to update availability",
+        description: "Failed to update availability. Check console for details.",
         variant: "destructive",
       });
     } finally {
@@ -277,6 +304,18 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* Debug Info for Doctors */}
+          {isDoctor && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm">
+                <strong>Debug:</strong> Auto-selected as Dr. {doctors.find(d => d.id === selectedDoctor)?.first_name} {doctors.find(d => d.id === selectedDoctor)?.last_name}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Selected Doctor ID: {selectedDoctor || 'None'} | Your Staff ID: {currentUser.staff_id}
+              </p>
             </div>
           )}
 
