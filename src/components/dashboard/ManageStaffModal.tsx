@@ -41,6 +41,7 @@ const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose, cu
     firstName: '',
     lastName: '',
     email: '',
+    password: '',
     phone: '',
     role: 'nurse' as 'doctor' | 'nurse' | 'admin',
     staffNumber: ''
@@ -80,10 +81,19 @@ const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose, cu
 
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.firstName || !formData.lastName || !formData.email) {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields (name, email, and password)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      toast({
+        title: "Error", 
+        description: "Password must be at least 8 characters long",
         variant: "destructive",
       });
       return;
@@ -105,7 +115,7 @@ const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose, cu
         },
         body: JSON.stringify({
           email: formData.email,
-          password: 'TempPassword123!', // They'll need to reset this
+          password: formData.password,
           first_name: formData.firstName,
           last_name: formData.lastName,
           phone: formData.phone,
@@ -122,13 +132,14 @@ const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose, cu
 
       toast({
         title: "Success",
-        description: "Staff member added successfully. They will need to reset their password.",
+        description: "Staff member added successfully with the provided credentials.",
       });
       
       setFormData({
         firstName: '',
         lastName: '',
         email: '',
+        password: '',
         phone: '',
         role: 'nurse',
         staffNumber: ''
@@ -327,15 +338,27 @@ const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose, cu
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email Address *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      required
-                    />
-                  </div>
+                     <Label htmlFor="email">Email Address *</Label>
+                     <Input
+                       id="email"
+                       type="email"
+                       value={formData.email}
+                       onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                       required
+                     />
+                   </div>
+
+                   <div className="space-y-2">
+                     <Label htmlFor="password">Password *</Label>
+                     <Input
+                       id="password"
+                       type="password"
+                       value={formData.password}
+                       onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                       placeholder="Minimum 8 characters"
+                       required
+                     />
+                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">

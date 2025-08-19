@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
 
     const { email, password, first_name, last_name, phone, role, staff_number }: StaffUserRequest = await req.json()
 
-    // Create the user with admin privileges
+    // Create the user with admin privileges (without user_type to avoid trigger)
     const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -61,8 +61,7 @@ Deno.serve(async (req) => {
         first_name,
         last_name,
         phone,
-        role,
-        user_type: 'staff'
+        role
       }
     })
 
@@ -74,7 +73,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Create the staff record
+    // Create the staff record manually
     const { data: staffData, error: staffInsertError } = await supabaseAdmin
       .from('staff')
       .insert({
@@ -94,7 +93,7 @@ Deno.serve(async (req) => {
       // If staff creation fails, we should delete the user to maintain consistency
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
       return new Response(
-        JSON.stringify({ error: 'Failed to create staff record' }),
+        JSON.stringify({ error: `Failed to create staff record: ${staffInsertError.message}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
