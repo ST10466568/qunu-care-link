@@ -33,6 +33,12 @@ interface Appointment {
     last_name: string;
     role: string;
   };
+  doctor?: {
+    first_name: string;
+    last_name: string;
+    role: string;
+    staff_number?: string;
+  };
 }
 
 interface PatientDashboardProps {
@@ -70,9 +76,29 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
           description: "Failed to load appointments",
           variant: "destructive",
         });
-      } else {
-        setAppointments(data || []);
+        return;
       }
+
+      // Fetch doctor information for appointments that have doctor_id
+      const appointmentsWithDoctors = await Promise.all(
+        (data || []).map(async (appointment) => {
+          if (appointment.doctor_id) {
+            const { data: doctorData } = await supabase
+              .from('staff')
+              .select('first_name, last_name, role, staff_number')
+              .eq('id', appointment.doctor_id)
+              .single();
+            
+            return {
+              ...appointment,
+              doctor: doctorData || null
+            };
+          }
+          return appointment;
+        })
+      );
+
+      setAppointments(appointmentsWithDoctors);
     } catch (error) {
       console.error('Error fetching appointments:', error);
     } finally {
@@ -245,11 +271,21 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
                           <span>{formatTime(appointment.start_time)} - {formatTime(appointment.end_time)}</span>
                         </div>
                       </div>
-                      {appointment.staff && (
-                        <div className="text-sm text-muted-foreground">
-                          With: {appointment.staff.first_name} {appointment.staff.last_name} ({appointment.staff.role})
-                        </div>
-                      )}
+                       {(appointment.doctor || appointment.staff) && (
+                         <div className="text-sm text-muted-foreground flex items-center">
+                           <User className="h-4 w-4 mr-1" />
+                           <span>
+                             {appointment.doctor ? (
+                               <>Dr. {appointment.doctor.first_name} {appointment.doctor.last_name}
+                               {appointment.doctor.staff_number && (
+                                 <span className="ml-1 text-xs">({appointment.doctor.staff_number})</span>
+                               )}</>
+                             ) : appointment.staff ? (
+                               <>{appointment.staff.first_name} {appointment.staff.last_name} ({appointment.staff.role})</>
+                             ) : null}
+                           </span>
+                         </div>
+                       )}
                       {appointment.services.description && (
                         <p className="text-sm text-muted-foreground">{appointment.services.description}</p>
                       )}
@@ -302,11 +338,21 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
                           <span>{formatTime(appointment.start_time)} - {formatTime(appointment.end_time)}</span>
                         </div>
                       </div>
-                      {appointment.staff && (
-                        <div className="text-sm text-muted-foreground">
-                          With: {appointment.staff.first_name} {appointment.staff.last_name} ({appointment.staff.role})
-                        </div>
-                      )}
+                       {(appointment.doctor || appointment.staff) && (
+                         <div className="text-sm text-muted-foreground flex items-center">
+                           <User className="h-4 w-4 mr-1" />
+                           <span>
+                             {appointment.doctor ? (
+                               <>Dr. {appointment.doctor.first_name} {appointment.doctor.last_name}
+                               {appointment.doctor.staff_number && (
+                                 <span className="ml-1 text-xs">({appointment.doctor.staff_number})</span>
+                               )}</>
+                             ) : appointment.staff ? (
+                               <>{appointment.staff.first_name} {appointment.staff.last_name} ({appointment.staff.role})</>
+                             ) : null}
+                           </span>
+                         </div>
+                       )}
                     </div>
                   </div>
                 </div>
