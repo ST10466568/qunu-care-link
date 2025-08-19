@@ -328,22 +328,17 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
               <Select
                 value={formData.appointmentTime}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, appointmentTime: value }))}
+                disabled={getAvailableTimeSlotsForDate().length === 0}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select time" />
+                  <SelectValue placeholder={getAvailableTimeSlotsForDate().length === 0 ? "No business hours available" : "Select time"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {getAvailableTimeSlotsForDate().length === 0 ? (
-                    <SelectItem value="" disabled>
-                      No business hours for selected date
+                  {getAvailableTimeSlotsForDate().map((slot) => (
+                    <SelectItem key={slot.id} value={slot.start_time}>
+                      {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
                     </SelectItem>
-                  ) : (
-                    getAvailableTimeSlotsForDate().map((slot) => (
-                      <SelectItem key={slot.id} value={slot.start_time}>
-                        {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
-                      </SelectItem>
-                    ))
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
             </div>
