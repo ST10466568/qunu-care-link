@@ -115,7 +115,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
             last_name: formData.lastName,
             phone: formData.phone,
             email: formData.email || null,
-            user_id: '00000000-0000-0000-0000-000000000000' // Placeholder for walk-in patients
+            user_id: null // Walk-in patients don't have user accounts
           })
           .select('id')
           .single();
