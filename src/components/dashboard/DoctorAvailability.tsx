@@ -36,7 +36,8 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [availabilityRecords, setAvailabilityRecords] = useState<AvailabilityRecord[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [isAvailable, setIsAvailable] = useState<boolean>(true);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -119,11 +120,35 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
     }
   };
 
+  const getDatesInRange = (start: string, end: string): string[] => {
+    const dates = [];
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      dates.push(currentDate.toISOString().split('T')[0]);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return dates;
+  };
+
   const handleSetAvailability = async () => {
-    if (!selectedDoctor || !selectedDate) {
+    if (!selectedDoctor || !startDate || !endDate) {
       toast({
         title: "Missing Information",
-        description: "Please select a doctor and date",
+        description: "Please select a doctor, start date, and end date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate date range
+    if (new Date(startDate) > new Date(endDate)) {
+      toast({
+        title: "Invalid Date Range",
+        description: "Start date must be before or equal to end date",
         variant: "destructive",
       });
       return;
@@ -141,46 +166,56 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
 
     setLoading(true);
     try {
-      // Check if record already exists
-      const { data: existingRecord } = await supabase
-        .from('staff_availability')
-        .select('id')
-        .eq('staff_id', selectedDoctor)
-        .eq('availability_date', selectedDate)
-        .maybeSingle();
-
-      if (existingRecord) {
-        // Update existing record
-        const { error } = await supabase
+      const datesInRange = getDatesInRange(startDate, endDate);
+      const doctorName = doctors.find(doc => doc.id === selectedDoctor);
+      
+      // Process each date in the range
+      for (const date of datesInRange) {
+        // Check if record already exists
+        const { data: existingRecord } = await supabase
           .from('staff_availability')
-          .update({ is_available: isAvailable })
-          .eq('id', existingRecord.id);
+          .select('id')
+          .eq('staff_id', selectedDoctor)
+          .eq('availability_date', date)
+          .maybeSingle();
 
-        if (error) throw error;
-      } else {
-        // Create new record
-        const { error } = await supabase
-          .from('staff_availability')
-          .insert({
-            staff_id: selectedDoctor,
-            availability_date: selectedDate,
-            is_available: isAvailable
-          });
+        if (existingRecord) {
+          // Update existing record
+          const { error } = await supabase
+            .from('staff_availability')
+            .update({ is_available: isAvailable })
+            .eq('id', existingRecord.id);
 
-        if (error) throw error;
+          if (error) throw error;
+        } else {
+          // Create new record
+          const { error } = await supabase
+            .from('staff_availability')
+            .insert({
+              staff_id: selectedDoctor,
+              availability_date: date,
+              is_available: isAvailable
+            });
+
+          if (error) throw error;
+        }
       }
 
-      const doctorName = doctors.find(doc => doc.id === selectedDoctor);
+      const dateRange = datesInRange.length === 1 
+        ? new Date(datesInRange[0]).toLocaleDateString()
+        : `${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`;
+
       toast({
         title: "Success",
-        description: `Availability updated for Dr. ${doctorName?.first_name} ${doctorName?.last_name} on ${new Date(selectedDate).toLocaleDateString()}`,
+        description: `Availability updated for Dr. ${doctorName?.first_name} ${doctorName?.last_name} from ${dateRange} (${datesInRange.length} day${datesInRange.length > 1 ? 's' : ''})`,
       });
 
       // Refresh records
       fetchAvailabilityRecords();
       
       // Reset form
-      setSelectedDate('');
+      setStartDate('');
+      setEndDate('');
       if (isAdmin) {
         setSelectedDoctor('');
       }
@@ -197,24 +232,8 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
     }
   };
 
-  const getNext30Days = () => {
-    const dates = [];
-    const today = new Date();
-    
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      dates.push({
-        value: date.toISOString().split('T')[0],
-        label: date.toLocaleDateString('en-US', { 
-          weekday: 'short', 
-          month: 'short', 
-          day: 'numeric' 
-        })
-      });
-    }
-    
-    return dates;
+  const getTodayString = () => {
+    return new Date().toISOString().split('T')[0];
   };
 
   const filteredRecords = availabilityRecords.filter(record => 
@@ -261,21 +280,39 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
             </div>
           )}
 
-          {/* Date Selection */}
-          <div className="space-y-2">
-            <Label>Select Date</Label>
-            <Select value={selectedDate} onValueChange={setSelectedDate}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a date" />
-              </SelectTrigger>
-              <SelectContent>
-                {getNext30Days().map((date) => (
-                  <SelectItem key={date.value} value={date.value}>
-                    {date.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Instructions */}
+          <div className="p-4 bg-muted/50 rounded-lg">
+            <p className="text-sm text-muted-foreground">
+              <strong>Instructions:</strong> Select a date range to set availability. 
+              Use this to mark periods when you'll be {isAvailable ? 'available' : 'unavailable'} 
+              (e.g., vacation, sick leave, special schedules).
+            </p>
+          </div>
+
+          {/* Date Range Selection */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                min={getTodayString()}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endDate">End Date</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate || getTodayString()}
+                required
+              />
+            </div>
           </div>
 
           {/* Availability Toggle */}
@@ -294,7 +331,7 @@ const DoctorAvailability: React.FC<DoctorAvailabilityProps> = ({ currentUser }) 
           {/* Set Button */}
           <Button 
             onClick={handleSetAvailability}
-            disabled={!selectedDoctor || !selectedDate || loading}
+            disabled={!selectedDoctor || !startDate || !endDate || loading}
             className="w-full"
           >
             {loading ? "Updating..." : "Set Availability"}
