@@ -21,6 +21,7 @@ interface Appointment {
   booking_type: string;
   notes?: string;
   staff_id?: string;
+  doctor_id?: string;
   service_id: string;
   patient_id: string;
   services: {
@@ -33,6 +34,13 @@ interface Appointment {
     phone: string;
     patient_number?: string;
   };
+}
+
+interface Doctor {
+  id: string;
+  first_name: string;
+  last_name: string;
+  staff_number: string;
 }
 
 interface EditAppointmentModalProps {
@@ -53,10 +61,13 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
     start_time: '',
     end_time: '',
     notes: '',
-    status: ''
+    status: '',
+    doctor_id: ''
   });
   const [date, setDate] = useState<Date>();
   const [loading, setLoading] = useState(false);
+  const [availableDoctors, setAvailableDoctors] = useState<Doctor[]>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -66,11 +77,42 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
         start_time: appointment.start_time,
         end_time: appointment.end_time,
         notes: appointment.notes || '',
-        status: appointment.status
+        status: appointment.status,
+        doctor_id: appointment.doctor_id || ''
       });
       setDate(new Date(appointment.appointment_date));
     }
   }, [appointment]);
+
+  useEffect(() => {
+    if (date) {
+      fetchAvailableDoctors(format(date, 'yyyy-MM-dd'));
+    }
+  }, [date]);
+
+  const fetchAvailableDoctors = async (selectedDate: string) => {
+    setLoadingDoctors(true);
+    try {
+      const { data, error } = await supabase.rpc('get_available_doctors_for_date', {
+        check_date: selectedDate
+      });
+
+      if (error) {
+        console.error('Error fetching available doctors:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load available doctors",
+          variant: "destructive",
+        });
+      } else {
+        setAvailableDoctors(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+    } finally {
+      setLoadingDoctors(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,7 +193,8 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
         start_time: formData.start_time,
         end_time: formData.end_time,
         notes: formData.notes.trim() || null,
-        status: formData.status
+        status: formData.status,
+        doctor_id: formData.doctor_id || null
       };
 
       const { error } = await supabase
@@ -226,6 +269,32 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
               disabled
               className="bg-muted"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="doctor">Doctor</Label>
+            <Select 
+              value={formData.doctor_id} 
+              onValueChange={(value) => setFormData({ ...formData, doctor_id: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={loadingDoctors ? "Loading doctors..." : "Select a doctor"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableDoctors.length === 0 && !loadingDoctors ? (
+                  <SelectItem value="" disabled>
+                    No doctors available for this date
+                  </SelectItem>
+                ) : (
+                  availableDoctors.map((doctor) => (
+                    <SelectItem key={doctor.id} value={doctor.id}>
+                      Dr. {doctor.first_name} {doctor.last_name}
+                      {doctor.staff_number && ` (${doctor.staff_number})`}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
