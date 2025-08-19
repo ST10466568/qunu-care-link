@@ -177,10 +177,95 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.serviceId || !formData.appointmentDate || !formData.appointmentTime) {
+    
+    // Comprehensive field validation with specific messages
+    if (!formData.firstName.trim()) {
       toast({
-        title: "Error",
-        description: "Please fill in all required fields",
+        title: "First Name Required",
+        description: "Please enter the patient's first name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.lastName.trim()) {
+      toast({
+        title: "Last Name Required", 
+        description: "Please enter the patient's last name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.phone.trim()) {
+      toast({
+        title: "Phone Number Required",
+        description: "Please enter the patient's phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Basic phone validation
+    const phoneRegex = /^[\d\s\-\(\)\+]{10,}$/;
+    if (!phoneRegex.test(formData.phone.trim())) {
+      toast({
+        title: "Invalid Phone Number",
+        description: "Please enter a valid phone number (at least 10 digits)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Email validation if provided
+    if (formData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email.trim())) {
+        toast({
+          title: "Invalid Email",
+          description: "Please enter a valid email address or leave it empty",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (!formData.serviceId) {
+      toast({
+        title: "Service Required",
+        description: "Please select a service for the appointment",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.appointmentDate) {
+      toast({
+        title: "Date Required",
+        description: "Please select an appointment date", 
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.appointmentTime) {
+      toast({
+        title: "Time Required",
+        description: "Please select an appointment time",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Date validation
+    const appointmentDate = new Date(formData.appointmentDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (appointmentDate < today) {
+      toast({
+        title: "Invalid Date",
+        description: "Appointment date cannot be in the past",
         variant: "destructive",
       });
       return;

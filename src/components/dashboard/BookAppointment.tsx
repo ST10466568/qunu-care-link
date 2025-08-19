@@ -189,10 +189,43 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
   };
 
   const handleBookAppointment = async () => {
-    if (!selectedService || !selectedDate || !selectedTimeSlot) {
+    // Comprehensive validation with specific error messages
+    if (!selectedService) {
       toast({
-        title: "Missing Information",
-        description: "Please select a service, date, and time slot",
+        title: "Service Required",
+        description: "Please select a service before booking",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedDate) {
+      toast({
+        title: "Date Required", 
+        description: "Please select an appointment date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedTimeSlot) {
+      toast({
+        title: "Time Required",
+        description: "Please select an available time slot",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if selected date is in the past
+    const selectedDateObj = new Date(selectedDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (selectedDateObj < today) {
+      toast({
+        title: "Invalid Date",
+        description: "Cannot book appointments for past dates",
         variant: "destructive",
       });
       return;
@@ -200,42 +233,57 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
 
     setLoading(true);
 
-    const timeSlot = timeSlots.find(slot => slot.id === selectedTimeSlot);
-    const selectedServiceData = services.find(service => service.id === selectedService);
-    if (!timeSlot || !selectedServiceData) return;
+    try {
+      const timeSlot = timeSlots.find(slot => slot.id === selectedTimeSlot);
+      const selectedServiceData = services.find(service => service.id === selectedService);
+      
+      if (!timeSlot || !selectedServiceData) {
+        throw new Error("Invalid service or time slot selection");
+      }
 
-    // Calculate end time based on service duration
-    const [startHour, startMin] = timeSlot.start_time.split(':').map(Number);
-    const startMinutes = startHour * 60 + startMin;
-    const endMinutes = startMinutes + selectedServiceData.duration_minutes;
-    const endHour = Math.floor(endMinutes / 60);
-    const endMin = endMinutes % 60;
-    const serviceEndTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
+      // Calculate end time based on service duration
+      const [startHour, startMin] = timeSlot.start_time.split(':').map(Number);
+      const startMinutes = startHour * 60 + startMin;
+      const endMinutes = startMinutes + selectedServiceData.duration_minutes;
+      const endHour = Math.floor(endMinutes / 60);
+      const endMin = endMinutes % 60;
+      const serviceEndTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
 
-    const { error } = await supabase
-      .from('appointments')
-      .insert({
-        patient_id: patientId,
-        service_id: selectedService,
-        appointment_date: selectedDate,
-        start_time: timeSlot.start_time,
-        end_time: serviceEndTime,
-        status: 'pending',
-        booking_type: 'online'
-      });
+      // Double-check availability before booking
+      if (!isTimeSlotAvailable(selectedDate, timeSlot.start_time, serviceEndTime)) {
+        throw new Error("Time slot is no longer available");
+      }
 
-    setLoading(false);
+      const { error } = await supabase
+        .from('appointments')
+        .insert({
+          patient_id: patientId,
+          service_id: selectedService,
+          appointment_date: selectedDate,
+          start_time: timeSlot.start_time,
+          end_time: serviceEndTime,
+          status: 'pending',
+          booking_type: 'online'
+        });
 
-    if (error) {
+      if (error) {
+        // Provide specific error messages based on error type
+        let errorMessage = "Failed to book appointment. Please try again.";
+        
+        if (error.message?.includes('overlaps')) {
+          errorMessage = "This time slot is no longer available due to another booking.";
+        } else if (error.message?.includes('permission') || error.message?.includes('policy')) {
+          errorMessage = "You don't have permission to book appointments. Please ensure you're logged in.";
+        } else if (error.message?.includes('foreign key') || error.message?.includes('invalid')) {
+          errorMessage = "Invalid booking details. Please refresh and try again.";
+        }
+        
+        throw new Error(errorMessage);
+      }
+
       toast({
-        title: "Booking Failed",
-        description: "Failed to book appointment. Please try again.",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Appointment Booked",
-        description: "Your appointment has been successfully booked!",
+        title: "Appointment Booked Successfully",
+        description: `Your ${selectedServiceData.name} appointment is scheduled for ${new Date(selectedDate).toLocaleDateString()} at ${timeSlot.start_time.slice(0, 5)}`,
       });
       
       // Reset form
@@ -244,6 +292,16 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
       setSelectedTimeSlot('');
       
       onBookingComplete();
+      
+    } catch (error) {
+      console.error('Booking error:', error);
+      toast({
+        title: "Booking Failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 

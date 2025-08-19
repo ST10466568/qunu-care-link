@@ -76,13 +76,81 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
     e.preventDefault();
     if (!appointment) return;
 
+    // Comprehensive validation
+    const appointmentDate = date ? format(date, 'yyyy-MM-dd') : formData.appointment_date;
+    
+    if (!appointmentDate) {
+      toast({
+        title: "Date Required",
+        description: "Please select an appointment date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.start_time) {
+      toast({
+        title: "Start Time Required",
+        description: "Please enter a start time",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.end_time) {
+      toast({
+        title: "End Time Required", 
+        description: "Please enter an end time",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.status) {
+      toast({
+        title: "Status Required",
+        description: "Please select an appointment status",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate time logic
+    const [startHour, startMin] = formData.start_time.split(':').map(Number);
+    const [endHour, endMin] = formData.end_time.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+
+    if (startMinutes >= endMinutes) {
+      toast({
+        title: "Invalid Time Range",
+        description: "End time must be after start time",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if date is not too far in the past (allow some flexibility for staff)
+    const selectedDate = new Date(appointmentDate);
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    
+    if (selectedDate < oneMonthAgo) {
+      toast({
+        title: "Invalid Date",
+        description: "Cannot schedule appointments more than one month in the past",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const updateData = {
-        appointment_date: date ? format(date, 'yyyy-MM-dd') : formData.appointment_date,
+        appointment_date: appointmentDate,
         start_time: formData.start_time,
         end_time: formData.end_time,
-        notes: formData.notes,
+        notes: formData.notes.trim() || null,
         status: formData.status
       };
 
@@ -92,15 +160,25 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
         .eq('id', appointment.id);
 
       if (error) {
+        let errorMessage = "Failed to update appointment";
+        
+        if (error.message?.includes('overlaps')) {
+          errorMessage = "This appointment time conflicts with another existing appointment";
+        } else if (error.message?.includes('permission') || error.message?.includes('policy')) {
+          errorMessage = "You don't have permission to update this appointment";
+        } else if (error.message?.includes('foreign key') || error.message?.includes('invalid')) {
+          errorMessage = "Invalid appointment data. Please check all fields";
+        }
+        
         toast({
-          title: "Error",
-          description: "Failed to update appointment",
+          title: "Update Failed",
+          description: errorMessage,
           variant: "destructive",
         });
       } else {
         toast({
-          title: "Success",
-          description: "Appointment updated successfully",
+          title: "Appointment Updated",
+          description: `Appointment successfully updated for ${format(new Date(appointmentDate), 'PPP')} at ${formData.start_time.slice(0, 5)}`,
         });
         onUpdate();
         onClose();
@@ -108,8 +186,8 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
     } catch (error) {
       console.error('Error updating appointment:', error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred",
+        title: "Update Failed",
+        description: "An unexpected error occurred while updating the appointment",
         variant: "destructive",
       });
     } finally {
