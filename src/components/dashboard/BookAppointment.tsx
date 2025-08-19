@@ -176,15 +176,22 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
     const [maxHour, maxMin] = latestEndTime.split(':').map(Number);
     const maxMinutesInDay = maxHour * 60 + maxMin;
     
-    // Filter slots where the service can be completed before business hours end and aren't already booked
+    // Filter slots where the service can be completed and check availability against existing appointments
     return daySlots.filter(slot => {
       const [slotStartHour, slotStartMin] = slot.start_time.split(':').map(Number);
       const slotStartMinutes = slotStartHour * 60 + slotStartMin;
       const serviceEndMinutes = slotStartMinutes + serviceDuration;
       
-      // Service must end before or at the end of business hours and slot must be available
-      return serviceEndMinutes <= maxMinutesInDay && 
-             isTimeSlotAvailable(selectedDate, slot.start_time, slot.end_time);
+      // Calculate the actual end time for this service booking
+      const endHour = Math.floor(serviceEndMinutes / 60);
+      const endMin = serviceEndMinutes % 60;
+      const actualEndTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
+      
+      // Service must end before or at the end of business hours
+      if (serviceEndMinutes > maxMinutesInDay) return false;
+      
+      // Check if this time slot conflicts with any existing appointments
+      return isTimeSlotAvailable(selectedDate, slot.start_time, actualEndTime);
     });
   };
 

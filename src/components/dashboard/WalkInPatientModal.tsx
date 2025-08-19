@@ -43,6 +43,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
 }) => {
   const [services, setServices] = useState<Service[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [existingAppointments, setExistingAppointments] = useState<Array<{appointment_date: string, start_time: string, end_time: string, status: string}>>([]);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -60,6 +61,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
     if (isOpen) {
       fetchServices();
       fetchTimeSlots();
+      fetchExistingAppointments();
       // Set default appointment date to today
       const now = new Date();
       setFormData(prev => ({
@@ -69,6 +71,13 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
       }));
     }
   }, [isOpen]);
+
+  // Fetch existing appointments when date changes
+  useEffect(() => {
+    if (formData.appointmentDate) {
+      fetchExistingAppointments();
+    }
+  }, [formData.appointmentDate]);
 
   // Reset appointment time when service changes
   useEffect(() => {
@@ -100,6 +109,20 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
     }
   };
 
+  const fetchExistingAppointments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('appointment_date, start_time, end_time, status')
+        .neq('status', 'cancelled');
+
+      if (error) throw error;
+      setExistingAppointments(data || []);
+    } catch (error) {
+      console.error('Error fetching existing appointments:', error);
+    }
+  };
+
   const getAvailableTimeSlotsForDate = () => {
     if (!formData.appointmentDate) return [];
     
@@ -126,14 +149,38 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
     const [maxHour, maxMin] = latestEndTime.split(':').map(Number);
     const maxMinutesInDay = maxHour * 60 + maxMin;
     
-    // Filter and deduplicate slots by start_time
+    // Get existing appointments for the selected date to check availability
+    const dateString = formData.appointmentDate;
+    const existingAppointmentsForDate = existingAppointments.filter(
+      apt => apt.appointment_date === dateString && apt.status !== 'cancelled'
+    );
+    
+    // Filter slots for availability and business hours
     const filteredSlots = daySlots.filter(slot => {
       const [slotStartHour, slotStartMin] = slot.start_time.split(':').map(Number);
       const slotStartMinutes = slotStartHour * 60 + slotStartMin;
       const serviceEndMinutes = slotStartMinutes + serviceDuration;
       
-      // Service must end before or at the end of business hours for the day
-      return serviceEndMinutes <= maxMinutesInDay;
+      // Service must end before or at the end of business hours
+      if (serviceEndMinutes > maxMinutesInDay) return false;
+      
+      // Calculate the actual end time for this service booking
+      const endHour = Math.floor(serviceEndMinutes / 60);
+      const endMin = serviceEndMinutes % 60;
+      const actualEndTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
+      
+      // Check if this time slot conflicts with any existing appointments
+      const hasConflict = existingAppointmentsForDate.some(apt => {
+        const aptStart = timeToMinutes(apt.start_time);
+        const aptEnd = timeToMinutes(apt.end_time);
+        const newStart = timeToMinutes(slot.start_time);
+        const newEnd = timeToMinutes(actualEndTime);
+        
+        // Overlap occurs if: new_start < existing_end AND new_end > existing_start
+        return newStart < aptEnd && newEnd > aptStart;
+      });
+      
+      return !hasConflict;
     });
     
     // Remove duplicates by start_time and ensure unique keys
