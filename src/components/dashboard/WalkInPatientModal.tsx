@@ -8,6 +8,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
+interface TimeSlot {
+  id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+}
+
 interface Service {
   id: string;
   name: string;
@@ -35,6 +42,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
   currentStaff
 }) => {
   const [services, setServices] = useState<Service[]>([]);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -51,17 +59,45 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       fetchServices();
-      // Set default appointment date to today and time to current time rounded to next 15 minutes
+      fetchTimeSlots();
+      // Set default appointment date to today
       const now = new Date();
-      const minutes = Math.ceil(now.getMinutes() / 15) * 15;
-      now.setMinutes(minutes, 0, 0);
       setFormData(prev => ({
         ...prev,
         appointmentDate: now.toISOString().split('T')[0],
-        appointmentTime: now.toTimeString().slice(0, 5)
+        appointmentTime: ''
       }));
     }
   }, [isOpen]);
+
+  const fetchTimeSlots = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('time_slots')
+        .select('*')
+        .eq('is_active', true)
+        .order('day_of_week, start_time');
+      
+      if (error) throw error;
+      setTimeSlots(data || []);
+    } catch (error) {
+      console.error('Error fetching time slots:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load available time slots",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getAvailableTimeSlotsForDate = () => {
+    if (!formData.appointmentDate) return [];
+    
+    const selectedDate = new Date(formData.appointmentDate);
+    const dayOfWeek = selectedDate.getDay();
+    
+    return timeSlots.filter(slot => slot.day_of_week === dayOfWeek);
+  };
 
   const fetchServices = async () => {
     try {
@@ -128,11 +164,25 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
         patientId = newPatient.id;
       }
 
-      // Get service duration
+      // Get service duration and validate time slot
       const selectedService = services.find(s => s.id === formData.serviceId);
       const duration = selectedService?.duration_minutes || 30;
       
-      // Calculate end time
+      // Find the selected time slot to get the exact start and end times
+      const availableSlots = getAvailableTimeSlotsForDate();
+      const selectedTimeSlot = availableSlots.find(slot => slot.start_time === formData.appointmentTime);
+      
+      if (!selectedTimeSlot) {
+        toast({
+          title: "Error",
+          description: "Selected time is not available for the chosen date",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Calculate end time based on service duration
       const [hours, minutes] = formData.appointmentTime.split(':').map(Number);
       const startTime = new Date();
       startTime.setHours(hours, minutes, 0, 0);
@@ -275,13 +325,27 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
             
             <div className="space-y-2">
               <Label htmlFor="appointmentTime">Appointment Time *</Label>
-              <Input
-                id="appointmentTime"
-                type="time"
+              <Select
                 value={formData.appointmentTime}
-                onChange={(e) => setFormData(prev => ({ ...prev, appointmentTime: e.target.value }))}
-                required
-              />
+                onValueChange={(value) => setFormData(prev => ({ ...prev, appointmentTime: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getAvailableTimeSlotsForDate().length === 0 ? (
+                    <SelectItem value="" disabled>
+                      No business hours for selected date
+                    </SelectItem>
+                  ) : (
+                    getAvailableTimeSlotsForDate().map((slot) => (
+                      <SelectItem key={slot.id} value={slot.start_time}>
+                        {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

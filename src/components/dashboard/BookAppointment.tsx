@@ -275,7 +275,7 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
               <div className="p-4 bg-muted rounded-md text-center text-muted-foreground">
                 <Clock className="h-8 w-8 mx-auto mb-2" />
                 <p>No available time slots for this date</p>
-                <p className="text-sm">Please select a different date</p>
+                <p className="text-sm">Please select a different date or check business hours</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
