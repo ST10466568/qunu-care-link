@@ -65,11 +65,13 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
     try {
       const { data, error } = await supabase
         .from('services')
-        .select('*')
+        .select('id, name, duration_minutes')
         .eq('is_active', true)
         .order('name');
-
+      
       if (error) throw error;
+      // Clear existing services before setting new ones to prevent duplicates
+      setServices([]);
       setServices(data || []);
     } catch (error) {
       console.error('Error fetching services:', error);

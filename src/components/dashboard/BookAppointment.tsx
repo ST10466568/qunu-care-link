@@ -59,7 +59,7 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
   const fetchServices = async () => {
     const { data, error } = await supabase
       .from('services')
-      .select('*')
+      .select('id, name, description, duration_minutes')
       .eq('is_active', true)
       .order('name');
 
@@ -70,6 +70,8 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
         variant: "destructive",
       });
     } else {
+      // Clear existing services before setting new ones to prevent duplicates
+      setServices([]);
       setServices(data || []);
     }
   };
