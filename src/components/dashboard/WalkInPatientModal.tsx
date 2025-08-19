@@ -126,8 +126,8 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
     const [maxHour, maxMin] = latestEndTime.split(':').map(Number);
     const maxMinutesInDay = maxHour * 60 + maxMin;
     
-    // Return slots where the service can be completed before business hours end
-    return daySlots.filter(slot => {
+    // Filter and deduplicate slots by start_time
+    const filteredSlots = daySlots.filter(slot => {
       const [slotStartHour, slotStartMin] = slot.start_time.split(':').map(Number);
       const slotStartMinutes = slotStartHour * 60 + slotStartMin;
       const serviceEndMinutes = slotStartMinutes + serviceDuration;
@@ -135,6 +135,17 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
       // Service must end before or at the end of business hours for the day
       return serviceEndMinutes <= maxMinutesInDay;
     });
+    
+    // Remove duplicates by start_time and ensure unique keys
+    const uniqueSlots = filteredSlots.reduce((unique, slot) => {
+      const existingSlot = unique.find(s => s.start_time === slot.start_time);
+      if (!existingSlot) {
+        unique.push(slot);
+      }
+      return unique;
+    }, [] as TimeSlot[]);
+    
+    return uniqueSlots;
   };
 
   const fetchServices = async () => {
@@ -175,12 +186,17 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
       // First, create or find the patient
       let patientId;
       
-      // Check if patient already exists by phone
-      const { data: existingPatient } = await supabase
+      // Check if patient already exists by phone (use maybeSingle to avoid errors)
+      const { data: existingPatient, error: patientLookupError } = await supabase
         .from('patients')
         .select('id')
         .eq('phone', formData.phone)
-        .single();
+        .maybeSingle();
+
+      if (patientLookupError) {
+        console.error('Patient lookup error:', patientLookupError);
+        throw new Error('Failed to check existing patient');
+      }
 
       if (existingPatient) {
         patientId = existingPatient.id;
@@ -265,9 +281,23 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Error creating walk-in appointment:', error);
+      
+      let errorMessage = "Failed to create walk-in appointment";
+      if (error instanceof Error) {
+        console.error('Detailed error:', error.message);
+        // Provide more specific error messages
+        if (error.message.includes('duplicate key') || error.message.includes('unique constraint')) {
+          errorMessage = "An appointment at this time already exists";
+        } else if (error.message.includes('foreign key') || error.message.includes('invalid')) {
+          errorMessage = "Invalid data provided. Please check all fields.";
+        } else if (error.message.includes('permission') || error.message.includes('policy')) {
+          errorMessage = "Permission denied. Please contact administrator.";
+        }
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to create walk-in appointment",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -378,7 +408,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
                   } />
                 </SelectTrigger>
                 <SelectContent>
-                  {getAvailableTimeSlotsForDate().map((slot) => {
+                  {getAvailableTimeSlotsForDate().map((slot, index) => {
                     const selectedService = services.find(s => s.id === formData.serviceId);
                     const serviceDuration = selectedService?.duration_minutes || 30;
                     
@@ -391,7 +421,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
                     const serviceEndTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
                     
                     return (
-                      <SelectItem key={slot.id} value={slot.start_time}>
+                      <SelectItem key={`${slot.start_time}-${index}`} value={slot.start_time}>
                         {slot.start_time.slice(0, 5)} - {serviceEndTime} ({serviceDuration} min)
                       </SelectItem>
                     );
