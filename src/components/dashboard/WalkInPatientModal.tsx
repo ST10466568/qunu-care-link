@@ -148,6 +148,11 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
     return uniqueSlots;
   };
 
+  const timeToMinutes = (timeString: string) => {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
   const fetchServices = async () => {
     try {
       const { data, error } = await supabase
@@ -222,7 +227,47 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
       const selectedService = services.find(s => s.id === formData.serviceId);
       const duration = selectedService?.duration_minutes || 30;
       
-      // Find the selected time slot to get the exact start and end times
+      // Calculate end time based on service duration
+      const [hours, minutes] = formData.appointmentTime.split(':').map(Number);
+      const startTime = new Date();
+      startTime.setHours(hours, minutes, 0, 0);
+      const endTime = new Date(startTime.getTime() + duration * 60000);
+      const calculatedEndTime = endTime.toTimeString().slice(0, 5);
+      
+      // Check for overlapping appointments
+      const { data: overlappingAppointments, error: overlapError } = await supabase
+        .from('appointments')
+        .select('start_time, end_time')
+        .eq('appointment_date', formData.appointmentDate)
+        .neq('status', 'cancelled');
+      
+      if (overlapError) {
+        console.error('Error checking overlapping appointments:', overlapError);
+        throw new Error('Failed to validate appointment time');
+      }
+      
+      // Check if the new appointment overlaps with any existing ones
+      const hasOverlap = overlappingAppointments?.some(apt => {
+        const aptStart = timeToMinutes(apt.start_time);
+        const aptEnd = timeToMinutes(apt.end_time);
+        const newStart = timeToMinutes(formData.appointmentTime);
+        const newEnd = timeToMinutes(calculatedEndTime);
+        
+        // Overlap occurs if: new_start < existing_end AND new_end > existing_start
+        return newStart < aptEnd && newEnd > aptStart;
+      });
+      
+      if (hasOverlap) {
+        toast({
+          title: "Error",
+          description: "This appointment time overlaps with an existing appointment. Please select a different time.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Find the selected time slot to validate business hours
       const availableSlots = getAvailableTimeSlotsForDate();
       const selectedTimeSlot = availableSlots.find(slot => slot.start_time === formData.appointmentTime);
       
@@ -235,12 +280,6 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
         setLoading(false);
         return;
       }
-      
-      // Calculate end time based on service duration
-      const [hours, minutes] = formData.appointmentTime.split(':').map(Number);
-      const startTime = new Date();
-      startTime.setHours(hours, minutes, 0, 0);
-      const endTime = new Date(startTime.getTime() + duration * 60000);
 
       // Create appointment
       const { error: appointmentError } = await supabase
@@ -251,7 +290,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
           staff_id: currentStaff.id,
           appointment_date: formData.appointmentDate,
           start_time: formData.appointmentTime,
-          end_time: endTime.toTimeString().slice(0, 5),
+          end_time: calculatedEndTime,
           status: 'pending',
           booking_type: 'walk_in',
           notes: formData.notes || null

@@ -108,11 +108,23 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
   };
 
   const isTimeSlotAvailable = (date: string, startTime: string, endTime: string) => {
-    return !existingAppointments.some(apt => 
-      apt.appointment_date === date && 
-      apt.start_time === startTime && 
-      apt.end_time === endTime
-    );
+    return !existingAppointments.some(apt => {
+      if (apt.appointment_date !== date) return false;
+      
+      // Check for overlap: appointments overlap if one starts before the other ends
+      const aptStart = timeToMinutes(apt.start_time);
+      const aptEnd = timeToMinutes(apt.end_time);
+      const newStart = timeToMinutes(startTime);
+      const newEnd = timeToMinutes(endTime);
+      
+      // Overlap occurs if: new_start < existing_end AND new_end > existing_start
+      return newStart < aptEnd && newEnd > aptStart;
+    });
+  };
+
+  const timeToMinutes = (timeString: string) => {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 60 + minutes;
   };
 
   const getNextAvailableDates = () => {
