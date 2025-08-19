@@ -216,8 +216,8 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
     const [maxHour, maxMin] = latestEndTime.split(':').map(Number);
     const maxMinutesInDay = maxHour * 60 + maxMin;
     
-    // Filter slots where the service can be completed and check availability against existing appointments
-    return daySlots.filter(slot => {
+    // Filter available slots
+    const availableSlots = daySlots.filter(slot => {
       const [slotStartHour, slotStartMin] = slot.start_time.split(':').map(Number);
       const slotStartMinutes = slotStartHour * 60 + slotStartMin;
       const serviceEndMinutes = slotStartMinutes + serviceDuration;
@@ -232,6 +232,18 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
       
       // Check if this time slot conflicts with any existing appointments
       return isTimeSlotAvailable(selectedDate, slot.start_time, actualEndTime);
+    });
+
+    // Remove duplicates by start_time and return unique slots
+    const uniqueSlots = availableSlots.filter((slot, index, self) => 
+      index === self.findIndex(s => s.start_time === slot.start_time)
+    );
+    
+    // Sort by start_time for consistent ordering
+    return uniqueSlots.sort((a, b) => {
+      const timeA = a.start_time.split(':').map(Number);
+      const timeB = b.start_time.split(':').map(Number);
+      return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
     });
   };
 
