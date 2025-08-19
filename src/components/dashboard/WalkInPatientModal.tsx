@@ -70,6 +70,16 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
     }
   }, [isOpen]);
 
+  // Reset appointment time when service changes
+  useEffect(() => {
+    if (formData.serviceId) {
+      setFormData(prev => ({
+        ...prev,
+        appointmentTime: ''
+      }));
+    }
+  }, [formData.serviceId, formData.appointmentDate]);
+
   const fetchTimeSlots = async () => {
     try {
       const { data, error } = await supabase
@@ -96,7 +106,23 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
     const selectedDate = new Date(formData.appointmentDate);
     const dayOfWeek = selectedDate.getDay();
     
-    return timeSlots.filter(slot => slot.day_of_week === dayOfWeek);
+    const selectedService = services.find(s => s.id === formData.serviceId);
+    const serviceDuration = selectedService?.duration_minutes || 30;
+    
+    return timeSlots
+      .filter(slot => slot.day_of_week === dayOfWeek)
+      .filter(slot => {
+        // Check if the service can be completed within this time slot
+        const [slotStartHour, slotStartMin] = slot.start_time.split(':').map(Number);
+        const [slotEndHour, slotEndMin] = slot.end_time.split(':').map(Number);
+        
+        const slotStartMinutes = slotStartHour * 60 + slotStartMin;
+        const slotEndMinutes = slotEndHour * 60 + slotEndMin;
+        const serviceEndMinutes = slotStartMinutes + serviceDuration;
+        
+        // Service must end before or at the slot end time
+        return serviceEndMinutes <= slotEndMinutes;
+      });
   };
 
   const fetchServices = async () => {
@@ -328,17 +354,36 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
               <Select
                 value={formData.appointmentTime}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, appointmentTime: value }))}
-                disabled={getAvailableTimeSlotsForDate().length === 0}
+                disabled={!formData.serviceId || getAvailableTimeSlotsForDate().length === 0}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={getAvailableTimeSlotsForDate().length === 0 ? "No business hours available" : "Select time"} />
+                  <SelectValue placeholder={
+                    !formData.serviceId 
+                      ? "Select a service first" 
+                      : getAvailableTimeSlotsForDate().length === 0 
+                      ? "No available times for this service duration" 
+                      : "Select time"
+                  } />
                 </SelectTrigger>
                 <SelectContent>
-                  {getAvailableTimeSlotsForDate().map((slot) => (
-                    <SelectItem key={slot.id} value={slot.start_time}>
-                      {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
-                    </SelectItem>
-                  ))}
+                  {getAvailableTimeSlotsForDate().map((slot) => {
+                    const selectedService = services.find(s => s.id === formData.serviceId);
+                    const serviceDuration = selectedService?.duration_minutes || 30;
+                    
+                    // Calculate service end time for display
+                    const [startHour, startMin] = slot.start_time.split(':').map(Number);
+                    const startMinutes = startHour * 60 + startMin;
+                    const endMinutes = startMinutes + serviceDuration;
+                    const endHour = Math.floor(endMinutes / 60);
+                    const endMin = endMinutes % 60;
+                    const serviceEndTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
+                    
+                    return (
+                      <SelectItem key={slot.id} value={slot.start_time}>
+                        {slot.start_time.slice(0, 5)} - {serviceEndTime} ({serviceDuration} min)
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

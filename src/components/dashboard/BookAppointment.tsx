@@ -139,17 +139,30 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
   };
 
   const getAvailableTimeSlotsForDate = () => {
-    if (!selectedDate) return [];
+    if (!selectedDate || !selectedService) return [];
     
     const date = new Date(selectedDate);
     const dayOfWeek = date.getDay();
     
+    const selectedServiceData = services.find(service => service.id === selectedService);
+    const serviceDuration = selectedServiceData?.duration_minutes || 30;
+    
     const slotsForDay = timeSlots.filter(slot => slot.day_of_week === dayOfWeek);
     
-    // Filter out already booked time slots
-    return slotsForDay.filter(slot => 
-      isTimeSlotAvailable(selectedDate, slot.start_time, slot.end_time)
-    );
+    // Filter slots that can accommodate the full service duration and aren't already booked
+    return slotsForDay.filter(slot => {
+      // Check if the service can be completed within this time slot
+      const [slotStartHour, slotStartMin] = slot.start_time.split(':').map(Number);
+      const [slotEndHour, slotEndMin] = slot.end_time.split(':').map(Number);
+      
+      const slotStartMinutes = slotStartHour * 60 + slotStartMin;
+      const slotEndMinutes = slotEndHour * 60 + slotEndMin;
+      const serviceEndMinutes = slotStartMinutes + serviceDuration;
+      
+      // Service must end before or at the slot end time and slot must be available
+      return serviceEndMinutes <= slotEndMinutes && 
+             isTimeSlotAvailable(selectedDate, slot.start_time, slot.end_time);
+    });
   };
 
   const handleBookAppointment = async () => {
@@ -268,7 +281,7 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
         </div>
 
         {/* Time Slot Selection */}
-        {selectedDate && (
+        {selectedDate && selectedService && (
           <div className="space-y-2">
             <label className="text-sm font-medium">Select Time</label>
             {availableTimeSlots.length === 0 ? (
@@ -279,17 +292,32 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {availableTimeSlots.map((slot) => (
-                  <Button
-                    key={slot.id}
-                    variant={selectedTimeSlot === slot.id ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedTimeSlot(slot.id)}
-                    className="justify-center"
-                  >
-                    {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
-                  </Button>
-                ))}
+                {availableTimeSlots.map((slot) => {
+                  const serviceDuration = selectedServiceData?.duration_minutes || 30;
+                  
+                  // Calculate service end time for display
+                  const [startHour, startMin] = slot.start_time.split(':').map(Number);
+                  const startMinutes = startHour * 60 + startMin;
+                  const endMinutes = startMinutes + serviceDuration;
+                  const endHour = Math.floor(endMinutes / 60);
+                  const endMin = endMinutes % 60;
+                  const serviceEndTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
+                  
+                  return (
+                    <Button
+                      key={slot.id}
+                      variant={selectedTimeSlot === slot.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedTimeSlot(slot.id)}
+                      className="justify-center text-xs p-2"
+                    >
+                      <div className="flex flex-col">
+                        <span>{slot.start_time.slice(0, 5)} - {serviceEndTime}</span>
+                        <span className="text-xs opacity-75">({serviceDuration} min)</span>
+                      </div>
+                    </Button>
+                  );
+                })}
               </div>
             )}
           </div>
