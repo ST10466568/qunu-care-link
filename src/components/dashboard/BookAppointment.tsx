@@ -27,6 +27,13 @@ interface ExistingAppointment {
   end_time: string;
 }
 
+interface Doctor {
+  id: string;
+  first_name: string;
+  last_name: string;
+  staff_number: string;
+}
+
 interface BookAppointmentProps {
   patientId: string;
   onBookingComplete: () => void;
@@ -36,9 +43,11 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
   const [services, setServices] = useState<Service[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [existingAppointments, setExistingAppointments] = useState<ExistingAppointment[]>([]);
+  const [availableDoctors, setAvailableDoctors] = useState<Doctor[]>([]);
   const [selectedService, setSelectedService] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
+  const [selectedDoctor, setSelectedDoctor] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -53,6 +62,7 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
   useEffect(() => {
     if (selectedDate) {
       fetchExistingAppointments();
+      fetchAvailableDoctors();
     }
   }, [selectedDate]);
 
@@ -104,6 +114,29 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
       console.error('Error fetching existing appointments:', error);
     } else {
       setExistingAppointments(data || []);
+    }
+  };
+
+  const fetchAvailableDoctors = async () => {
+    if (!selectedDate) return;
+    
+    const { data, error } = await supabase.rpc('get_available_doctors_for_date', {
+      check_date: selectedDate
+    });
+
+    if (error) {
+      console.error('Error fetching available doctors:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load available doctors",
+        variant: "destructive",
+      });
+    } else {
+      setAvailableDoctors(data || []);
+      // Reset selected doctor if not available
+      if (selectedDoctor && !data?.some((doc: Doctor) => doc.id === selectedDoctor)) {
+        setSelectedDoctor('');
+      }
     }
   };
 
@@ -215,6 +248,15 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
       return;
     }
 
+    if (!selectedDoctor) {
+      toast({
+        title: "Doctor Required",
+        description: "Please select a doctor for your appointment",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!selectedTimeSlot) {
       toast({
         title: "Time Required",
@@ -266,6 +308,7 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
         .insert({
           patient_id: patientId,
           service_id: selectedService,
+          doctor_id: selectedDoctor,
           appointment_date: selectedDate,
           start_time: timeSlot.start_time,
           end_time: serviceEndTime,
@@ -297,6 +340,7 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
       setSelectedService('');
       setSelectedDate('');
       setSelectedTimeSlot('');
+      setSelectedDoctor('');
       
       onBookingComplete();
       
@@ -377,8 +421,40 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
           </Select>
         </div>
 
+        {/* Doctor Selection */}
+        {selectedDate && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Select Doctor</label>
+            {availableDoctors.length === 0 ? (
+              <div className="p-4 bg-muted rounded-md text-center text-muted-foreground">
+                <User className="h-8 w-8 mx-auto mb-2" />
+                <p>No doctors available for this date</p>
+                <p className="text-sm">Please select a different date</p>
+              </div>
+            ) : (
+              <Select value={selectedDoctor} onValueChange={setSelectedDoctor}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a doctor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableDoctors.map((doctor) => (
+                    <SelectItem key={doctor.id} value={doctor.id}>
+                      Dr. {doctor.first_name} {doctor.last_name}
+                      {doctor.staff_number && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          ({doctor.staff_number})
+                        </span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
+
         {/* Time Slot Selection */}
-        {selectedDate && selectedService && (
+        {selectedDate && selectedService && selectedDoctor && (
           <div className="space-y-2">
             <label className="text-sm font-medium">Select Time</label>
             {availableTimeSlots.length === 0 ? (
@@ -421,11 +497,12 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
         )}
 
         {/* Booking Summary */}
-        {selectedService && selectedDate && selectedTimeSlot && (
+        {selectedService && selectedDate && selectedDoctor && selectedTimeSlot && (
           <div className="p-4 bg-primary/5 border border-primary/20 rounded-md">
             <h4 className="font-medium mb-2">Booking Summary</h4>
             <div className="space-y-1 text-sm">
               <p><strong>Service:</strong> {selectedServiceData?.name}</p>
+              <p><strong>Doctor:</strong> Dr. {availableDoctors.find(doc => doc.id === selectedDoctor)?.first_name} {availableDoctors.find(doc => doc.id === selectedDoctor)?.last_name}</p>
               <p><strong>Date:</strong> {new Date(selectedDate).toLocaleDateString()}</p>
               <p><strong>Time:</strong> {availableTimeSlots.find(slot => slot.id === selectedTimeSlot)?.start_time.slice(0, 5)}</p>
               <p><strong>Duration:</strong> {selectedServiceData?.duration_minutes} minutes</p>
@@ -436,7 +513,7 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
         {/* Book Button */}
         <Button 
           onClick={handleBookAppointment}
-          disabled={!selectedService || !selectedDate || !selectedTimeSlot || loading}
+          disabled={!selectedService || !selectedDate || !selectedDoctor || !selectedTimeSlot || loading}
           className="w-full"
         >
           {loading ? "Booking..." : "Book Appointment"}

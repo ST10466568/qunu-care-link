@@ -19,6 +19,7 @@ export type Database = {
           appointment_date: string
           booking_type: string
           created_at: string
+          doctor_id: string | null
           end_time: string
           id: string
           notes: string | null
@@ -33,6 +34,7 @@ export type Database = {
           appointment_date: string
           booking_type?: string
           created_at?: string
+          doctor_id?: string | null
           end_time: string
           id?: string
           notes?: string | null
@@ -47,6 +49,7 @@ export type Database = {
           appointment_date?: string
           booking_type?: string
           created_at?: string
+          doctor_id?: string | null
           end_time?: string
           id?: string
           notes?: string | null
@@ -242,6 +245,33 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_availability: {
+        Row: {
+          availability_date: string
+          created_at: string
+          id: string
+          is_available: boolean
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          availability_date: string
+          created_at?: string
+          id?: string
+          is_available?: boolean
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          availability_date?: string
+          created_at?: string
+          id?: string
+          is_available?: boolean
+          staff_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff_schedules: {
         Row: {
           created_at: string
@@ -351,6 +381,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_available_doctors_for_date: {
+        Args: { check_date: string }
+        Returns: {
+          first_name: string
+          id: string
+          last_name: string
+          staff_number: string
+        }[]
+      }
       get_current_user_staff_info: {
         Args: Record<PropertyKey, never>
         Returns: {

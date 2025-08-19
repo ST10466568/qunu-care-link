@@ -10,6 +10,7 @@ import ScheduleView from './ScheduleView';
 import EditAppointmentModal from './EditAppointmentModal';
 import Reports from './Reports';
 import WalkInPatientModal from './WalkInPatientModal';
+import DoctorAvailability from './DoctorAvailability';
 import ManageStaffModal from './ManageStaffModal';
 
 interface Staff {
@@ -63,6 +64,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
   const [loading, setLoading] = useState(true);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showReports, setShowReports] = useState(false);
+  const [showAvailability, setShowAvailability] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [showWalkInModal, setShowWalkInModal] = useState(false);
   const [showManageStaffModal, setShowManageStaffModal] = useState(false);
@@ -218,6 +220,25 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
     return <Reports staff={staff} onBack={() => setShowReports(false)} />;
   }
 
+  if (showAvailability) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Doctor Availability</h1>
+          <Button variant="outline" onClick={() => setShowAvailability(false)}>
+            ← Back to Dashboard
+          </Button>
+        </div>
+        <DoctorAvailability 
+          currentUser={{
+            role: staff.role,
+            staff_id: staff.id
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
@@ -290,7 +311,17 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staff }) => {
                   <Users className="h-4 w-4 mr-2" />
                   Manage Staff
                 </Button>
+                <Button variant="outline" onClick={() => setShowAvailability(true)}>
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Doctor Availability
+                </Button>
               </>
+            )}
+            {(staff.role === 'doctor') && (
+              <Button variant="outline" onClick={() => setShowAvailability(true)}>
+                <Calendar className="h-4 w-4 mr-2" />
+                My Availability
+              </Button>
             )}
             <Button variant="outline" onClick={() => setShowSchedule(true)}>
               <Calendar className="h-4 w-4 mr-2" />

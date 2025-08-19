@@ -28,6 +28,13 @@ interface Staff {
   role: string;
 }
 
+interface Doctor {
+  id: string;
+  first_name: string;
+  last_name: string;
+  staff_number: string;
+}
+
 interface WalkInPatientModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -44,6 +51,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
   const [services, setServices] = useState<Service[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [existingAppointments, setExistingAppointments] = useState<Array<{appointment_date: string, start_time: string, end_time: string, status: string}>>([]);
+  const [availableDoctors, setAvailableDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -51,6 +59,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
     phone: '',
     email: '',
     serviceId: '',
+    doctorId: '',
     appointmentDate: '',
     appointmentTime: '',
     notes: ''
@@ -76,18 +85,19 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
   useEffect(() => {
     if (formData.appointmentDate) {
       fetchExistingAppointments();
+      fetchAvailableDoctors();
     }
   }, [formData.appointmentDate]);
 
-  // Reset appointment time when service changes
+  // Reset appointment time when service or doctor changes
   useEffect(() => {
-    if (formData.serviceId) {
+    if (formData.serviceId || formData.doctorId) {
       setFormData(prev => ({
         ...prev,
         appointmentTime: ''
       }));
     }
-  }, [formData.serviceId, formData.appointmentDate]);
+  }, [formData.serviceId, formData.doctorId, formData.appointmentDate]);
 
   const fetchTimeSlots = async () => {
     try {
@@ -120,6 +130,31 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
       setExistingAppointments(data || []);
     } catch (error) {
       console.error('Error fetching existing appointments:', error);
+    }
+  };
+
+  const fetchAvailableDoctors = async () => {
+    if (!formData.appointmentDate) return;
+    
+    try {
+      const { data, error } = await supabase.rpc('get_available_doctors_for_date', {
+        check_date: formData.appointmentDate
+      });
+
+      if (error) throw error;
+      setAvailableDoctors(data || []);
+      
+      // Reset selected doctor if not available
+      if (formData.doctorId && !data?.some((doc: Doctor) => doc.id === formData.doctorId)) {
+        setFormData(prev => ({ ...prev, doctorId: '' }));
+      }
+    } catch (error) {
+      console.error('Error fetching available doctors:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load available doctors",
+        variant: "destructive",
+      });
     }
   };
 
@@ -286,6 +321,15 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
       return;
     }
 
+    if (!formData.doctorId) {
+      toast({
+        title: "Doctor Required",
+        description: "Please select a doctor for the appointment",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!formData.appointmentDate) {
       toast({
         title: "Date Required",
@@ -419,6 +463,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
         .insert({
           patient_id: patientId,
           service_id: formData.serviceId,
+          doctor_id: formData.doctorId,
           staff_id: currentStaff.id,
           appointment_date: formData.appointmentDate,
           start_time: formData.appointmentTime,
@@ -443,6 +488,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
         phone: '',
         email: '',
         serviceId: '',
+        doctorId: '',
         appointmentDate: '',
         appointmentTime: '',
         notes: ''
@@ -549,6 +595,39 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
             </Select>
           </div>
 
+          {/* Doctor Selection */}
+          {formData.appointmentDate && (
+            <div className="space-y-2">
+              <Label htmlFor="doctor">Doctor *</Label>
+              {availableDoctors.length === 0 ? (
+                <div className="p-4 bg-muted rounded-md text-center text-muted-foreground text-sm">
+                  No doctors available for this date. Please select a different date.
+                </div>
+              ) : (
+                <Select
+                  value={formData.doctorId}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, doctorId: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a doctor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableDoctors.map((doctor) => (
+                      <SelectItem key={doctor.id} value={doctor.id}>
+                        Dr. {doctor.first_name} {doctor.last_name}
+                        {doctor.staff_number && (
+                          <span className="text-xs text-muted-foreground ml-2">
+                            ({doctor.staff_number})
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="appointmentDate">Appointment Date *</Label>
@@ -567,12 +646,14 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
               <Select
                 value={formData.appointmentTime}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, appointmentTime: value }))}
-                disabled={!formData.serviceId || getAvailableTimeSlotsForDate().length === 0}
+                disabled={!formData.serviceId || !formData.doctorId || getAvailableTimeSlotsForDate().length === 0}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={
                     !formData.serviceId 
                       ? "Select a service first" 
+                      : !formData.doctorId
+                      ? "Select a doctor first"
                       : getAvailableTimeSlotsForDate().length === 0 
                       ? "No available times for this service duration" 
                       : "Select time"
