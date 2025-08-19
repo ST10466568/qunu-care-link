@@ -278,21 +278,21 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
               onValueChange={(value) => setFormData({ ...formData, doctor_id: value })}
             >
               <SelectTrigger>
-                <SelectValue placeholder={loadingDoctors ? "Loading doctors..." : "Select a doctor"} />
+                <SelectValue placeholder={
+                  loadingDoctors 
+                    ? "Loading doctors..." 
+                    : availableDoctors.length === 0 
+                      ? "No doctors available for this date"
+                      : "Select a doctor"
+                } />
               </SelectTrigger>
               <SelectContent>
-                {availableDoctors.length === 0 && !loadingDoctors ? (
-                  <SelectItem value="" disabled>
-                    No doctors available for this date
+                {availableDoctors.map((doctor) => (
+                  <SelectItem key={doctor.id} value={doctor.id}>
+                    Dr. {doctor.first_name} {doctor.last_name}
+                    {doctor.staff_number && ` (${doctor.staff_number})`}
                   </SelectItem>
-                ) : (
-                  availableDoctors.map((doctor) => (
-                    <SelectItem key={doctor.id} value={doctor.id}>
-                      Dr. {doctor.first_name} {doctor.last_name}
-                      {doctor.staff_number && ` (${doctor.staff_number})`}
-                    </SelectItem>
-                  ))
-                )}
+                ))}
               </SelectContent>
             </Select>
           </div>
