@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -142,19 +143,26 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
       });
 
       if (error) throw error;
+      console.log('Available doctors for', formData.appointmentDate, ':', data);
       setAvailableDoctors(data || []);
       
-      // Reset selected doctor if not available
+      // Reset selected doctor if not available on this date
       if (formData.doctorId && !data?.some((doc: Doctor) => doc.id === formData.doctorId)) {
         setFormData(prev => ({ ...prev, doctorId: '' }));
+        toast({
+          title: "Doctor Unavailable",
+          description: "The selected doctor is not available on this date. Please choose another.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error fetching available doctors:', error);
       toast({
         title: "Error",
-        description: "Failed to load available doctors",
+        description: "Failed to load available doctors for this date",
         variant: "destructive",
       });
+      setAvailableDoctors([]);
     }
   };
 
@@ -601,29 +609,39 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
               <Label htmlFor="doctor">Doctor *</Label>
               {availableDoctors.length === 0 ? (
                 <div className="p-4 bg-muted rounded-md text-center text-muted-foreground text-sm">
-                  No doctors available for this date. Please select a different date.
+                  <User className="h-6 w-6 mx-auto mb-2" />
+                  <p className="font-medium">No doctors available</p>
+                  <p>No doctors are on duty for {new Date(formData.appointmentDate).toLocaleDateString()}</p>
+                  <p className="text-xs mt-1">Please select a different date</p>
                 </div>
               ) : (
-                <Select
-                  value={formData.doctorId}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, doctorId: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a doctor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableDoctors.map((doctor) => (
-                      <SelectItem key={doctor.id} value={doctor.id}>
-                        Dr. {doctor.first_name} {doctor.last_name}
-                        {doctor.staff_number && (
-                          <span className="text-xs text-muted-foreground ml-2">
-                            ({doctor.staff_number})
-                          </span>
-                        )}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select
+                    value={formData.doctorId}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, doctorId: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select the attending doctor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableDoctors.map((doctor) => (
+                        <SelectItem key={doctor.id} value={doctor.id}>
+                          <div className="flex flex-col">
+                            <span>Dr. {doctor.first_name} {doctor.last_name}</span>
+                            {doctor.staff_number && (
+                              <span className="text-xs text-muted-foreground">
+                                Staff No: {doctor.staff_number}
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {availableDoctors.length} doctor{availableDoctors.length > 1 ? 's' : ''} available on {new Date(formData.appointmentDate).toLocaleDateString()}
+                  </p>
+                </>
               )}
             </div>
           )}

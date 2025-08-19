@@ -128,14 +128,21 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
       console.error('Error fetching available doctors:', error);
       toast({
         title: "Error",
-        description: "Failed to load available doctors",
+        description: "Failed to load available doctors for this date",
         variant: "destructive",
       });
+      setAvailableDoctors([]);
     } else {
+      console.log('Available doctors for', selectedDate, ':', data);
       setAvailableDoctors(data || []);
-      // Reset selected doctor if not available
+      // Reset selected doctor if not available on this date
       if (selectedDoctor && !data?.some((doc: Doctor) => doc.id === selectedDoctor)) {
         setSelectedDoctor('');
+        toast({
+          title: "Doctor Unavailable",
+          description: "Your previously selected doctor is not available on this date. Please choose another.",
+          variant: "destructive",
+        });
       }
     }
   };
@@ -428,27 +435,35 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
             {availableDoctors.length === 0 ? (
               <div className="p-4 bg-muted rounded-md text-center text-muted-foreground">
                 <User className="h-8 w-8 mx-auto mb-2" />
-                <p>No doctors available for this date</p>
-                <p className="text-sm">Please select a different date</p>
+                <p className="font-medium">No doctors available</p>
+                <p className="text-sm">No doctors are on duty for {new Date(selectedDate).toLocaleDateString()}</p>
+                <p className="text-xs mt-1">Please select a different date or check doctor schedules</p>
               </div>
             ) : (
-              <Select value={selectedDoctor} onValueChange={setSelectedDoctor}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a doctor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableDoctors.map((doctor) => (
-                    <SelectItem key={doctor.id} value={doctor.id}>
-                      Dr. {doctor.first_name} {doctor.last_name}
-                      {doctor.staff_number && (
-                        <span className="text-xs text-muted-foreground ml-2">
-                          ({doctor.staff_number})
-                        </span>
-                      )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <>
+                <Select value={selectedDoctor} onValueChange={setSelectedDoctor}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose your preferred doctor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableDoctors.map((doctor) => (
+                      <SelectItem key={doctor.id} value={doctor.id}>
+                        <div className="flex flex-col">
+                          <span>Dr. {doctor.first_name} {doctor.last_name}</span>
+                          {doctor.staff_number && (
+                            <span className="text-xs text-muted-foreground">
+                              Staff No: {doctor.staff_number}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {availableDoctors.length} doctor{availableDoctors.length > 1 ? 's' : ''} available on {new Date(selectedDate).toLocaleDateString()}
+                </p>
+              </>
             )}
           </div>
         )}
