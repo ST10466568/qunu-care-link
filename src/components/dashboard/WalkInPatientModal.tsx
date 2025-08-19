@@ -42,6 +42,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
     phone: '',
     email: '',
     serviceId: '',
+    appointmentDate: '',
     appointmentTime: '',
     notes: ''
   });
@@ -50,12 +51,13 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       fetchServices();
-      // Set default appointment time to current time rounded to next 15 minutes
+      // Set default appointment date to today and time to current time rounded to next 15 minutes
       const now = new Date();
       const minutes = Math.ceil(now.getMinutes() / 15) * 15;
       now.setMinutes(minutes, 0, 0);
       setFormData(prev => ({
         ...prev,
+        appointmentDate: now.toISOString().split('T')[0],
         appointmentTime: now.toTimeString().slice(0, 5)
       }));
     }
@@ -85,7 +87,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.serviceId || !formData.appointmentTime) {
+    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.serviceId || !formData.appointmentDate || !formData.appointmentTime) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -143,19 +145,20 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
           patient_id: patientId,
           service_id: formData.serviceId,
           staff_id: currentStaff.id,
-          appointment_date: new Date().toISOString().split('T')[0],
+          appointment_date: formData.appointmentDate,
           start_time: formData.appointmentTime,
           end_time: endTime.toTimeString().slice(0, 5),
-          status: 'confirmed',
+          status: 'pending',
           booking_type: 'walk_in',
           notes: formData.notes || null
         });
 
       if (appointmentError) throw appointmentError;
 
+      const isToday = formData.appointmentDate === new Date().toISOString().split('T')[0];
       toast({
         title: "Success",
-        description: "Walk-in patient appointment created successfully",
+        description: isToday ? "Walk-in patient appointment created successfully" : "Future appointment scheduled successfully",
       });
       
       // Reset form
@@ -165,6 +168,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
         phone: '',
         email: '',
         serviceId: '',
+        appointmentDate: '',
         appointmentTime: '',
         notes: ''
       });
@@ -189,7 +193,7 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
         <DialogHeader>
           <DialogTitle>Add Walk-in Patient</DialogTitle>
           <DialogDescription>
-            Register a walk-in patient and create an immediate appointment
+            Register a walk-in patient and schedule an appointment for today or future dates
           </DialogDescription>
         </DialogHeader>
         
@@ -256,15 +260,29 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="appointmentTime">Appointment Time *</Label>
-            <Input
-              id="appointmentTime"
-              type="time"
-              value={formData.appointmentTime}
-              onChange={(e) => setFormData(prev => ({ ...prev, appointmentTime: e.target.value }))}
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="appointmentDate">Appointment Date *</Label>
+              <Input
+                id="appointmentDate"
+                type="date"
+                value={formData.appointmentDate}
+                onChange={(e) => setFormData(prev => ({ ...prev, appointmentDate: e.target.value }))}
+                min={new Date().toISOString().split('T')[0]}
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="appointmentTime">Appointment Time *</Label>
+              <Input
+                id="appointmentTime"
+                type="time"
+                value={formData.appointmentTime}
+                onChange={(e) => setFormData(prev => ({ ...prev, appointmentTime: e.target.value }))}
+                required
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
