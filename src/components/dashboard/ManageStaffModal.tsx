@@ -91,22 +91,35 @@ const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose, cu
 
     setLoading(true);
     try {
-      // Create auth user first
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: formData.email,
-        password: 'TempPassword123!', // They'll need to reset this
-        user_metadata: {
+      // Call the edge function to create staff user
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`https://yhsyeovshmoyseusytpd.supabase.co/functions/v1/create-staff-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.session.access_token}`,
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: 'TempPassword123!', // They'll need to reset this
           first_name: formData.firstName,
           last_name: formData.lastName,
           phone: formData.phone,
           role: formData.role,
-          user_type: 'staff'
-        }
+          staff_number: formData.staffNumber
+        }),
       });
 
-      if (authError) throw authError;
+      const result = await response.json();
 
-      // The handle_new_user trigger should create the staff record automatically
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create staff member');
+      }
+
       toast({
         title: "Success",
         description: "Staff member added successfully. They will need to reset their password.",
