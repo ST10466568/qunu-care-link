@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+// import { supabase } from '@/integrations/supabase/client';
 
 interface TimeSlot {
   id: string;
@@ -102,14 +102,27 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
 
   const fetchTimeSlots = async () => {
     try {
-      const { data, error } = await supabase
-        .from('time_slots')
-        .select('*')
-        .eq('is_active', true)
-        .order('day_of_week, start_time');
-      
-      if (error) throw error;
-      setTimeSlots(data || []);
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const response = await fetch('http://localhost:5001/api/timeslots', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTimeSlots(data.map((slot: any) => ({
+          id: slot.id,
+          day_of_week: slot.dayOfWeek,
+          start_time: slot.startTime,
+          end_time: slot.endTime
+        })) || []);
+      } else {
+        throw new Error('Failed to fetch time slots');
+      }
     } catch (error) {
       console.error('Error fetching time slots:', error);
       toast({
@@ -122,13 +135,28 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
 
   const fetchExistingAppointments = async () => {
     try {
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('appointment_date, start_time, end_time, status')
-        .neq('status', 'cancelled');
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
 
-      if (error) throw error;
-      setExistingAppointments(data || []);
+      const response = await fetch('http://localhost:5001/api/appointments', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const appointments = data
+          .filter((apt: any) => apt.status !== 'cancelled')
+          .map((apt: any) => ({
+            appointment_date: apt.appointmentDate,
+            start_time: apt.startTime,
+            end_time: apt.endTime,
+            status: apt.status
+          }));
+        setExistingAppointments(appointments || []);
+      }
     } catch (error) {
       console.error('Error fetching existing appointments:', error);
     }
@@ -245,16 +273,20 @@ const WalkInPatientModal: React.FC<WalkInPatientModalProps> = ({
 
   const fetchServices = async () => {
     try {
-      const { data, error } = await supabase
-        .from('services')
-        .select('id, name, duration_minutes')
-        .eq('is_active', true)
-        .order('name');
+      const response = await fetch('http://localhost:5001/api/services');
       
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Failed to fetch services');
+      }
+      
+      const data = await response.json();
       // Clear existing services before setting new ones to prevent duplicates
       setServices([]);
-      setServices(data || []);
+      setServices(data.map((service: any) => ({
+        id: service.id,
+        name: service.name,
+        duration_minutes: service.durationMinutes
+      })) || []);
     } catch (error) {
       console.error('Error fetching services:', error);
       toast({

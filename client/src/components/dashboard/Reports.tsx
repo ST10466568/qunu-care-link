@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { CalendarIcon, Download, FileText, BarChart3, TrendingUp, Users, Clock } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
+// import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface Staff {
@@ -56,19 +56,40 @@ const Reports: React.FC<ReportsProps> = ({ staff, onBack }) => {
 
       console.log('Fetching reports for period:', monthStart, 'to', monthEnd);
 
-      const { data: appointments, error: appointmentsError } = await supabase
-        .from('appointments')
-        .select(`
-          *,
-          services:service_id (name, description),
-          patients:patient_id (first_name, last_name, phone, patient_number),
-          staff:staff_id (first_name, last_name, role)
-        `)
-        .gte('appointment_date', monthStart)
-        .lte('appointment_date', monthEnd)
-        .order('appointment_date', { ascending: true });
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
 
-      if (appointmentsError) throw appointmentsError;
+      const response = await fetch('http://localhost:5001/api/appointments', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      let appointments: any[] = [];
+      if (response.ok) {
+        const data = await response.json();
+        appointments = data.filter((apt: any) => {
+          const aptDate = apt.appointmentDate;
+          return aptDate >= monthStart && aptDate <= monthEnd;
+        }).map((apt: any) => ({
+          ...apt,
+          appointment_date: apt.appointmentDate,
+          start_time: apt.startTime,
+          end_time: apt.endTime,
+          patient_id: apt.patientId,
+          service_id: apt.serviceId,
+          services: { name: 'Service' }, // Simplified for now
+          patients: { first_name: 'Patient', last_name: '', phone: '', patient_number: '' },
+          staff: { first_name: 'Staff', last_name: '', role: 'doctor' }
+        })).sort((a: any, b: any) => a.appointment_date.localeCompare(b.appointment_date));
+      } else {
+        throw new Error('Failed to fetch appointments');
+      }
+
+      // Appointments fetched successfully
 
       console.log('Fetched appointments:', appointments?.length || 0);
 

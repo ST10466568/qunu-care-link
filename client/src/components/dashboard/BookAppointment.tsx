@@ -108,26 +108,75 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
   };
 
   const fetchExistingAppointments = async () => {
-    const { data, error } = await supabase
-      .from('appointments')
-      .select('appointment_date, start_time, end_time')
-      .neq('status', 'cancelled');
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
 
-    if (error) {
+      const response = await fetch('http://localhost:5001/api/appointments', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const appointments = data.map((apt: any) => ({
+          appointment_date: apt.appointmentDate,
+          start_time: apt.startTime,
+          end_time: apt.endTime
+        }));
+        setExistingAppointments(appointments || []);
+      } else {
+        console.error('Error fetching existing appointments');
+      }
+    } catch (error) {
       console.error('Error fetching existing appointments:', error);
-    } else {
-      setExistingAppointments(data || []);
     }
   };
 
   const fetchAvailableDoctors = async () => {
     if (!selectedDate) return;
     
-    const { data, error } = await supabase.rpc('get_available_doctors_for_date', {
-      check_date: selectedDate
-    });
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
 
-    if (error) {
+      const response = await fetch('http://localhost:5001/api/staff', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const staffData = await response.json();
+        // Filter for active doctors/staff that could handle appointments
+        const doctors = staffData.filter((staff: any) => 
+          staff.isActive && (staff.role === 'doctor' || staff.role === 'nurse')
+        ).map((staff: any) => ({
+          id: staff.id,
+          first_name: staff.firstName,
+          last_name: staff.lastName,
+          staff_number: staff.staffNumber
+        }));
+        
+        console.log('Available doctors for', selectedDate, ':', doctors);
+        setAvailableDoctors(doctors || []);
+        
+        // Reset selected doctor if not available on this date
+        if (selectedDoctor && !doctors?.some((doc: Doctor) => doc.id === selectedDoctor)) {
+          setSelectedDoctor('');
+          toast({
+            title: "Doctor Unavailable",
+            description: "Your previously selected doctor is not available on this date. Please choose another.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        throw new Error('Failed to fetch staff');
+      }
+    } catch (error) {
       console.error('Error fetching available doctors:', error);
       toast({
         title: "Error",
@@ -135,18 +184,6 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
         variant: "destructive",
       });
       setAvailableDoctors([]);
-    } else {
-      console.log('Available doctors for', selectedDate, ':', data);
-      setAvailableDoctors(data || []);
-      // Reset selected doctor if not available on this date
-      if (selectedDoctor && !data?.some((doc: Doctor) => doc.id === selectedDoctor)) {
-        setSelectedDoctor('');
-        toast({
-          title: "Doctor Unavailable",
-          description: "Your previously selected doctor is not available on this date. Please choose another.",
-          variant: "destructive",
-        });
-      }
     }
   };
 
@@ -325,29 +362,36 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
         throw new Error("Time slot is no longer available");
       }
 
-      const { error } = await supabase
-        .from('appointments')
-        .insert({
-          patient_id: patientId,
-          service_id: selectedService,
-          doctor_id: selectedDoctor,
-          appointment_date: selectedDate,
-          start_time: timeSlot.start_time,
-          end_time: serviceEndTime,
-          status: 'pending',
-          booking_type: 'online'
-        });
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error("You must be logged in to book appointments");
+      }
 
-      if (error) {
-        // Provide specific error messages based on error type
+      const response = await fetch('http://localhost:5001/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          serviceId: selectedService,
+          appointmentDate: selectedDate,
+          startTime: timeSlot.start_time,
+          endTime: serviceEndTime,
+          notes: ''
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
         let errorMessage = "Failed to book appointment. Please try again.";
         
-        if (error.message?.includes('overlaps')) {
-          errorMessage = "This time slot is no longer available due to another booking.";
-        } else if (error.message?.includes('permission') || error.message?.includes('policy')) {
+        if (response.status === 401 || response.status === 403) {
           errorMessage = "You don't have permission to book appointments. Please ensure you're logged in.";
-        } else if (error.message?.includes('foreign key') || error.message?.includes('invalid')) {
-          errorMessage = "Invalid booking details. Please refresh and try again.";
+        } else if (response.status === 400) {
+          errorMessage = errorData.error || "Invalid booking details. Please refresh and try again.";
+        } else if (response.status === 409) {
+          errorMessage = "This time slot is no longer available due to another booking.";
         }
         
         throw new Error(errorMessage);

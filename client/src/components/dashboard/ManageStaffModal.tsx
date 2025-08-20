@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+// import { supabase } from '@/integrations/supabase/client';
 import { Plus, Edit, Trash2, Users } from 'lucide-react';
 
 interface Staff {
@@ -57,16 +57,33 @@ const ManageStaffModal: React.FC<ManageStaffModalProps> = ({ isOpen, onClose, cu
   const fetchStaff = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('staff')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
 
-      if (error) throw error;
-      setStaff((data || []).map(member => ({
-        ...member,
-        role: member.role as 'doctor' | 'nurse' | 'admin'
-      })));
+      const response = await fetch('http://localhost:5001/api/staff', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const staffData = await response.json();
+        setStaff(staffData.map((member: any) => ({
+          id: member.id,
+          user_id: member.userId || '',
+          staff_number: member.staffNumber,
+          first_name: member.firstName,
+          last_name: member.lastName,
+          role: member.role as 'doctor' | 'nurse' | 'admin',
+          phone: member.phone,
+          is_active: member.isActive,
+          created_at: member.createdAt,
+          updated_at: member.updatedAt
+        })));
+      } else {
+        throw new Error('Failed to fetch staff');
+      }
     } catch (error) {
       console.error('Error fetching staff:', error);
       toast({

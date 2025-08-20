@@ -9,7 +9,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
+// import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface Appointment {
@@ -93,22 +93,38 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
   const fetchAvailableDoctors = async (selectedDate: string) => {
     setLoadingDoctors(true);
     try {
-      const { data, error } = await supabase.rpc('get_available_doctors_for_date', {
-        check_date: selectedDate
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const response = await fetch('http://localhost:5001/api/staff', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
-      if (error) {
-        console.error('Error fetching available doctors:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load available doctors",
-          variant: "destructive",
-        });
+      if (response.ok) {
+        const staffData = await response.json();
+        const doctors = staffData
+          .filter((staff: any) => staff.role === 'doctor' && staff.isActive)
+          .map((staff: any) => ({
+            id: staff.id,
+            first_name: staff.firstName,
+            last_name: staff.lastName,
+            staff_number: staff.staffNumber
+          }));
+        
+        setAvailableDoctors(doctors || []);
       } else {
-        setAvailableDoctors(data || []);
+        throw new Error('Failed to fetch doctors');
       }
     } catch (error) {
       console.error('Error fetching doctors:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load available doctors",
+        variant: "destructive",
+      });
     } finally {
       setLoadingDoctors(false);
     }
@@ -197,19 +213,34 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
         doctor_id: formData.doctor_id || null
       };
 
-      const { error } = await supabase
-        .from('appointments')
-        .update(updateData)
-        .eq('id', appointment.id);
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
 
-      if (error) {
+      const response = await fetch(`http://localhost:5001/api/appointments/${appointment.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          appointmentDate: appointmentDate,
+          startTime: formData.start_time,
+          endTime: formData.end_time,
+          notes: formData.notes.trim() || '',
+          status: formData.status
+        }),
+      });
+
+      if (!response.ok) {
         let errorMessage = "Failed to update appointment";
         
-        if (error.message?.includes('overlaps')) {
+        if (response.status === 409) {
           errorMessage = "This appointment time conflicts with another existing appointment";
-        } else if (error.message?.includes('permission') || error.message?.includes('policy')) {
+        } else if (response.status === 401 || response.status === 403) {
           errorMessage = "You don't have permission to update this appointment";
-        } else if (error.message?.includes('foreign key') || error.message?.includes('invalid')) {
+        } else if (response.status === 400) {
           errorMessage = "Invalid appointment data. Please check all fields";
         }
         
