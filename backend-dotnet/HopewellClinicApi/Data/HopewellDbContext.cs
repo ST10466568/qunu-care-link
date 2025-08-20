@@ -75,6 +75,9 @@ namespace HopewellClinicApi.Data
             modelBuilder.Entity<Patient>()
                 .Property(p => p.DateOfBirth)
                 .HasColumnType("date");
+
+            // Seed initial data
+            DataSeeder.SeedData(modelBuilder);
         }
     }
 }
