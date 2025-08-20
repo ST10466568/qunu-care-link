@@ -1,10 +1,15 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+
+interface User {
+  id: string;
+  email: string;
+  user_type: 'patient' | 'staff';
+}
 
 interface Patient {
   id: string;
+  user_id: string;
   first_name: string;
   last_name: string;
   phone: string;
@@ -27,7 +32,6 @@ interface Staff {
 
 interface AuthContextType {
   user: User | null;
-  session: Session | null;
   patient: Patient | null;
   staff: Staff | null;
   loading: boolean;
@@ -52,122 +56,101 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [staff, setStaff] = useState<Staff | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchUserProfile = async (userId: string) => {
+  const getAuthToken = () => localStorage.getItem('auth_token');
+  const setAuthToken = (token: string) => localStorage.setItem('auth_token', token);
+  const removeAuthToken = () => localStorage.removeItem('auth_token');
+
+  const fetchUserProfile = async () => {
     try {
-      // Try to fetch patient profile first
-      const { data: patientData, error: patientError } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (patientData && !patientError) {
-        setPatient(patientData);
-        setStaff(null);
+      const token = getAuthToken();
+      if (!token) {
+        setLoading(false);
         return;
       }
 
-      // If not a patient, try to fetch staff profile
-      const { data: staffData, error: staffError } = await supabase
-        .from('staff')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const response = await fetch('/api/auth/user', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-      if (staffData && !staffError) {
-        setStaff(staffData as Staff);
-        setPatient(null);
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          removeAuthToken();
+          setUser(null);
+          setPatient(null);
+          setStaff(null);
+        }
+        setLoading(false);
         return;
       }
 
-      // If neither found, clear both
-      setPatient(null);
-      setStaff(null);
+      const data = await response.json();
+      setUser(data.user);
+      setPatient(data.patient || null);
+      setStaff(data.staff || null);
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      removeAuthToken();
+      setUser(null);
       setPatient(null);
       setStaff(null);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Defer profile fetching to avoid auth callback issues
-        if (session?.user) {
-          setTimeout(() => {
-            fetchUserProfile(session.user.id);
-          }, 0);
-        } else {
-          setPatient(null);
-          setStaff(null);
-        }
-        
-        setLoading(false);
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        setTimeout(() => {
-          fetchUserProfile(session.user.id);
-        }, 0);
-      }
-      
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    fetchUserProfile();
   }, []);
 
   const signUp = async (email: string, password: string, userData: { first_name: string; last_name: string; phone: string; user_type: 'patient' | 'staff'; role?: 'doctor' | 'nurse' | 'admin' }) => {
     try {
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: userData
-        }
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          ...userData,
+        }),
       });
 
-      if (error) {
+      const data = await response.json();
+
+      if (!response.ok) {
         toast({
           title: "Sign Up Error",
-          description: error.message,
+          description: data.error || 'Failed to sign up',
           variant: "destructive",
         });
-        return { error };
+        return { error: data.error };
       }
 
-      if (data.user && !data.session) {
-        toast({
-          title: "Check your email",
-          description: "Please check your email for the confirmation link.",
-        });
-      }
+      // Store the token and update state
+      setAuthToken(data.token);
+      setUser(data.user);
+      setPatient(data.patient || null);
+      setStaff(data.staff || null);
+
+      toast({
+        title: "Account created successfully",
+        description: "Welcome to Hopewell Clinic!",
+      });
 
       return { error: null };
     } catch (error: any) {
       toast({
         title: "Sign Up Error",
-        description: error.message,
+        description: error.message || 'Failed to sign up',
         variant: "destructive",
       });
       return { error };
@@ -176,25 +159,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
       });
 
-      if (error) {
+      const data = await response.json();
+
+      if (!response.ok) {
         toast({
           title: "Sign In Error",
-          description: error.message,
+          description: data.error || 'Failed to sign in',
           variant: "destructive",
         });
-        return { error };
+        return { error: data.error };
       }
+
+      // Store the token and update state
+      setAuthToken(data.token);
+      setUser(data.user);
+      setPatient(data.patient || null);
+      setStaff(data.staff || null);
+
+      toast({
+        title: "Welcome back!",
+        description: "You have been signed in successfully.",
+      });
 
       return { error: null };
     } catch (error: any) {
       toast({
         title: "Sign In Error",
-        description: error.message,
+        description: error.message || 'Failed to sign in',
         variant: "destructive",
       });
       return { error };
@@ -203,26 +205,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        toast({
-          title: "Sign Out Error",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        setUser(null);
-        setSession(null);
-        setPatient(null);
-        setStaff(null);
-        toast({
-          title: "Signed out successfully",
-        });
-      }
+      await fetch('/api/auth/signout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+        },
+      });
+
+      removeAuthToken();
+      setUser(null);
+      setPatient(null);
+      setStaff(null);
+      
+      toast({
+        title: "Signed out successfully",
+      });
     } catch (error: any) {
       toast({
         title: "Sign Out Error",
-        description: error.message,
+        description: error.message || 'Failed to sign out',
         variant: "destructive",
       });
     }
@@ -230,7 +231,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const value: AuthContextType = {
     user,
-    session,
     patient,
     staff,
     loading,
