@@ -1,0 +1,6 @@
+@HopewellClinicApi_HostAddress = http://localhost:5068
+
+GET {{HopewellClinicApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

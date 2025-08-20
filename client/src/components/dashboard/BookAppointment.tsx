@@ -67,40 +67,43 @@ const BookAppointment = ({ patientId, onBookingComplete }: BookAppointmentProps)
   }, [selectedDate]);
 
   const fetchServices = async () => {
-    const { data, error } = await supabase
-      .from('services')
-      .select('id, name, description, duration_minutes')
-      .eq('is_active', true)
-      .order('name');
-
-    if (error) {
+    try {
+      const response = await fetch('http://localhost:5001/api/services');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch services');
+      }
+      
+      const data = await response.json();
+      
+      // Clear existing services before setting new ones to prevent duplicates
+      setServices([]);
+      setServices(data || []);
+    } catch (error) {
       toast({
         title: "Error",
         description: "Failed to load services",
         variant: "destructive",
       });
-    } else {
-      // Clear existing services before setting new ones to prevent duplicates
-      setServices([]);
-      setServices(data || []);
     }
   };
 
   const fetchTimeSlots = async () => {
-    const { data, error } = await supabase
-      .from('time_slots')
-      .select('*')
-      .eq('is_active', true)
-      .order('day_of_week, start_time');
-
-    if (error) {
+    try {
+      const response = await fetch('http://localhost:5001/api/time-slots');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch time slots');
+      }
+      
+      const data = await response.json();
+      setTimeSlots(data || []);
+    } catch (error) {
       toast({
         title: "Error",
         description: "Failed to load time slots",
         variant: "destructive",
       });
-    } else {
-      setTimeSlots(data || []);
     }
   };
 

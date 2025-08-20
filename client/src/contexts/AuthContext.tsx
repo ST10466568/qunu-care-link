@@ -73,7 +73,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
-      const response = await fetch('/api/auth/user', {
+      const response = await fetch('http://localhost:5001/api/auth/user', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -112,7 +112,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signUp = async (email: string, password: string, userData: { first_name: string; last_name: string; phone: string; user_type: 'patient' | 'staff'; role?: 'doctor' | 'nurse' | 'admin' }) => {
     try {
-      const response = await fetch('/api/auth/signup', {
+      const response = await fetch('http://localhost:5001/api/auth/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -159,7 +159,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const response = await fetch('/api/auth/signin', {
+      const response = await fetch('http://localhost:5001/api/auth/signin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -205,7 +205,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = async () => {
     try {
-      await fetch('/api/auth/signout', {
+      await fetch('http://localhost:5001/api/auth/signout', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
