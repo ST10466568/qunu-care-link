@@ -73,6 +73,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
+      // Check if backend is available
       const response = await fetch('http://localhost:5001/api/auth/user', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -96,7 +97,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setPatient(data.patient || null);
       setStaff(data.staff || null);
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error('Backend not available, running in demo mode:', error);
+      // Remove any stale token and clear user state
       removeAuthToken();
       setUser(null);
       setPatient(null);
@@ -149,11 +151,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return { error: null };
     } catch (error: any) {
       toast({
-        title: "Sign Up Error",
-        description: error.message || 'Failed to sign up',
+        title: "Backend not available",
+        description: "This is a demo version - backend connection required for full functionality",
         variant: "destructive",
       });
-      return { error };
+      return { error: "Backend not available" };
     }
   };
 
@@ -195,11 +197,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return { error: null };
     } catch (error: any) {
       toast({
-        title: "Sign In Error",
-        description: error.message || 'Failed to sign in',
+        title: "Backend not available",
+        description: "This is a demo version - backend connection required for full functionality",
         variant: "destructive",
       });
-      return { error };
+      return { error: "Backend not available" };
     }
   };
 
