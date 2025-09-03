@@ -9,7 +9,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
-// import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface Appointment {
@@ -19,20 +19,21 @@ interface Appointment {
   end_time: string;
   status: string;
   booking_type: string;
-  notes?: string;
-  staff_id?: string;
-  doctor_id?: string;
+  notes: string | null;
+  staff_id: string | null;
+  doctor_id: string | null;
   service_id: string;
   patient_id: string;
+  updated_at?: string;
   services: {
     name: string;
-    description?: string;
+    description: string | null;
   };
   patients: {
     first_name: string;
     last_name: string;
     phone: string;
-    patient_number?: string;
+    patient_number: string | null;
   };
 }
 

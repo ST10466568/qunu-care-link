@@ -1,4 +1,16 @@
 import type { Express, Request, Response } from "express";
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string;
+        email: string;
+        user_type: string;
+      };
+    }
+  }
+}
 import { createServer, type Server } from "http";
 import { db, patients, staff, services, appointments, time_slots } from "./db";
 import { hashPassword, verifyPassword, generateToken, verifyToken, getUserSession } from "./auth";

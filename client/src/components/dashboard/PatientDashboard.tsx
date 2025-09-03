@@ -23,22 +23,22 @@ interface Appointment {
   start_time: string;
   end_time: string;
   status: string;
-  notes?: string;
+  notes: string | null;
   services: {
     name: string;
-    description?: string;
+    description: string | null;
   };
-  staff?: {
+  staff: {
     first_name: string;
     last_name: string;
     role: string;
-  };
-  doctor?: {
+  } | null;
+  doctor: {
     first_name: string;
     last_name: string;
     role: string;
     staff_number?: string;
-  };
+  } | null;
 }
 
 interface PatientDashboardProps {
@@ -79,9 +79,18 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
         return;
       }
 
-      // Fetch doctor information for appointments that have doctor_id
       const appointmentsWithDoctors = await Promise.all(
         (data || []).map(async (appointment) => {
+          let appointmentWithDoctor = {
+            ...appointment,
+            doctor: null as {
+              first_name: string;
+              last_name: string;
+              role: string;
+              staff_number?: string;
+            } | null
+          };
+          
           if (appointment.doctor_id) {
             const { data: doctorData } = await supabase
               .from('staff')
@@ -89,12 +98,13 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
               .eq('id', appointment.doctor_id)
               .single();
             
-            return {
-              ...appointment,
-              doctor: doctorData || null
-            };
+            appointmentWithDoctor.doctor = doctorData ? {
+              ...doctorData,
+              staff_number: doctorData.staff_number || undefined
+            } : null;
           }
-          return appointment;
+          
+          return appointmentWithDoctor;
         })
       );
 

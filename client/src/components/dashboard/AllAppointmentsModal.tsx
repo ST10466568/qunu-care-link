@@ -10,16 +10,22 @@ interface Appointment {
   start_time: string;
   end_time: string;
   status: string;
-  notes?: string;
+  notes: string | null;
   services: {
     name: string;
-    description?: string;
+    description: string | null;
   };
-  staff?: {
+  staff: {
     first_name: string;
     last_name: string;
     role: string;
-  };
+  } | null;
+  doctor: {
+    first_name: string;
+    last_name: string;
+    role: string;
+    staff_number?: string;
+  } | null;
 }
 
 interface AllAppointmentsModalProps {
